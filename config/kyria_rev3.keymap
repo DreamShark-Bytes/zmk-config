@@ -32,7 +32,7 @@
 / {
     /*
     conditional_layers {
-        compatible = "zmk,conditional-layers";
+        compatible = "zmk,conditional-layers"
         tri_layer {
             if-layers = <NUM_L NAV_L>;
             then-layer = <ADJ_L>;
@@ -46,13 +46,13 @@
             // ---------------------------------------------------------------------------------------------------------------------------------
             // | TAB  |  Q  |  W  |  E   |   R   |  T           |                                                             |   Y   |  U    |  I  |  O   |   P   | TAB  |
             // | CTRL |  A  |  S  |  D   |   F   |  G           |                                                             |   H   |  J    |  K  |  L   |   ;   |   '  |
-            // | BSPC |  Z  |  X  |  C   |   V   |  B           | L ALT |     GUI      |          |     GUI      |   R ALT    |   N   |  M    |  ,  |  .   |   /   | DEL  |
-            //                   | ESC  | NAV_L | SYM1_L/ENTER | SPACE | STICKY SHIFT |          | STICKY SHIFT |  SYM2_RET  | SPACE | NAV_L | ESC |
+            // | BSPC |  Z  |  X  |  C   |   V   |  B           | Num_L/ESC |     ALT      |          |     GUI      |   R ALT    |   N   |  M    |  ,  |  .   |   /   | DEL  |
+            //                    | GUI  | NAV_L | SYM1_L/ENTER | SPACE     | STICKY SHIFT |          | STICKY SHIFT |  SYM2_RET  | SPACE | NAV_L | ESC |
             bindings = <
-            &lt NUM_L TAB &kp Q &kp W &kp E   &kp R     &kp T                                                                             &kp Y     &kp U     &kp I     &kp O   &kp P    &kp TAB
-            &kp LCTRL     &kp A &kp S &kp D   &kp F     &kp G                                                                             &kp H     &kp J     &kp K     &kp L   &kp SEMI &kp SQT
-            &kp BSPC      &kp Z &kp X &kp C   &kp V     &kp B             &kp LALT  &kp GUI                 &kp RGUI   &kp RALT           &kp N     &kp M     &kp COMMA &kp DOT &kp FSLH &kp DEL
-                                      &kp ESC &mo NAV_L &lt SYM_ONE_L RET &kp SPACE &sk LSHIFT              &sk LSHIFT &lt SYM_TWO_L RET  &kp SPACE &mo NAV_L &kp ESC
+            &kp TAB &kp Q &kp W &kp E   &kp R     &kp T                                                                                       &kp Y     &kp U     &kp I     &kp O   &kp P    &kp TAB
+            &kp LCTRL     &kp A &kp S &kp D   &kp F     &kp G                                                                                 &kp H     &kp J     &kp K     &kp L   &kp SEMI &kp SQT
+            &kp BSPC      &kp Z &kp X &kp C   &kp V     &kp B              &lt NUM_L ESC &kp LALT                &kp RGUI   &kp RALT          &kp N     &kp M     &kp COMMA &kp DOT &kp FSLH &kp DEL
+                                      &kp LGUI &mo NAV_L &lt SYM_ONE_L RET &kp SPACE     &sk LSHIFT              &sk LSHIFT &lt SYM_TWO_L RET &kp SPACE &mo NAV_L &kp ESC
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;
