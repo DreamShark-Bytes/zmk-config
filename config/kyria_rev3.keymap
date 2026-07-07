@@ -24,7 +24,7 @@
             // ---------------------------------------------------------------------------------------------------------------------------------
             // |  ESC  |  Q  |  W  |  E   |  R   |  T   |                                          |  Y   |  U    |  I    |  O   |   P   |   \  |
             // |  TAB  |  A  |  S  |  D   |  F   |  G   |                                          |  H   |  J    |  K    |  L   |   ;   |   '  |
-            // | SHIFT |  Z  |  X  |  C   |  V   |  B   | L SHIFT | L SHIFT |  | LAYER 1 | L SHIFT |  N   |  M    |  ,    |  .   |   /   | CTRL |
+            // | SHIFT |  Z  |  X  |  C   |  V   |  B   | L SHIFT | LAYER 1 |  | LAYER 1 | L SHIFT |  N   |  M    |  ,    |  .   |   /   | CTRL |
             //                     | GUI  | DEL  | RET  |  SPACE  |   ESC   |  |   RET   |  SPACE  | TAB  | BSPC  | R-ALT |
             bindings = <
             &kp ESC   &kp Q &kp W &kp E &kp R &kp T                                                  &kp Y &kp U  &kp I     &kp O   &kp P    &kp BSLH
@@ -39,12 +39,12 @@
             // ---------------------------------------------------------------------------------------------------------------------------------
             // |       |      |BT_CLR|BTSEL0|BTSEL1|BTSEL2|                                         |      |      |      |      |      |      |
             // |       |      |      |BTSEL3|BTSEL4|      |                                         |      |      |      |      |      |      |
-            // |       |      |      |      |      |      |      |      |      |      |      |      |      |      |      |      |      |      |
+            // |       |   A  |      |      |      |      |      |      |      |      |      |      |      |      |      |      |      |      |
             //                       |      |      |      |      |      |      |      |      |      |      |      |      |
             bindings = <
             &trans &trans &bt BT_CLR &bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2              &trans &trans &trans &trans &trans &trans
             &trans &trans &trans     &bt BT_SEL 3 &bt BT_SEL 4 &trans                    &trans &trans &trans &trans &trans &trans
-            &trans &trans &trans &trans &trans &trans &trans &trans        &trans &trans &trans &trans &trans &trans &trans &trans
+            &trans &kp A &trans &trans &trans &trans &trans &trans        &trans &trans &trans &trans &trans &trans &trans &trans
                                  &trans &trans &trans &trans &trans        &trans &trans &trans &trans &trans
             >;
 
