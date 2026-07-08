@@ -23,20 +23,31 @@
 #define ADJ_L   4
 
 / {
+    behaviors {
+        skq: sticky_key_quick_release {
+            compatible = "zmk,behavior-sticky-key";
+            #binding-cells = <1>;
+            bindings = <&kp>;
+            release-after-ms = <1000>;
+            quick-release;
+            ignore-modifiers;
+        };
+    };
+
     keymap {
         compatible = "zmk,keymap";
 
         default_layer {
             // ---------------------------------------------------------------------------------------------------------------------------------
             // |  TAB |  Q  |  W  |  E   |  R    |    T      |                                                         |  Y   |  U    |  I    |  O   |   P   |  TAB  |
-            // | CTRL |  A  |  S  |  D   |  F    |    G      |                                                         |  H   |  J    |  K    |  L   |   ;   | CTRL  |
-            // | BSPC |  Z  |  X  |  C   |  V    |    B      | L ALT   |  L GUI    |------------|   R GUI   |   R ALT  |  N   |  M    |  ,    |  .   |   /   |  DEL  |
+            // | CTRL |  A  |  S  |  D   |  F    |    G      |                                                         |  H   |  J    |  K    |  L   |  ' "  | CTRL  |
+            // | BSPC |  Z  |  X  |  C   |  V    |    B      | L ALT   |  L GUI    |------------|   R GUI   |   R ALT  |  N   |  M    |  ,    |  .   |  / ?  |  DEL  |
             //                    | ESC  | NUM_L | RET/MOV_L |  SPACE  |stickySHIFT|------------|stickyShift| RET/SC_L | TAB  | BSPC  |  ESC  |
             bindings = <
             &kp TAB   &kp Q &kp W &kp E   &kp R     &kp T                                                                &kp Y     &kp U     &kp I     &kp O    &kp P    &kp TAB
-            &kp LCTRL &kp A &kp S &kp D   &kp F     &kp G                                                                &kp H     &kp J     &kp K     &kp L    &kp SEMI &kp RCTRL
+            &kp LCTRL &kp A &kp S &kp D   &kp F     &kp G                                                                &kp H     &kp J     &kp K     &kp L    &kp APOS &kp RCTRL
             &kp BSPC  &kp Z &kp X &kp C   &kp V     &kp B         &kp LALT  &kp LGUI             &kp RGUI   &kp RALT     &kp N     &kp M     &kp COMMA &kp DOT  &kp FSLH &kp DEL
-                                  &kp ESC &mo NUM_L &lt MOV_L RET &kp SPACE &sk LSHIFT           &sk RSHIFT &lt SC_L RET &kp SPACE &kp BSPC  &kp ESC
+                                  &kp ESC &mo NUM_L &lt MOV_L RET &kp SPACE &skq LSHIFT           &skq RSHIFT &lt SC_L RET &kp SPACE &kp BSPC  &kp ESC
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;
@@ -58,9 +69,9 @@
         };
         movement_layer {
             // ---------------------------------------------------------------------------------------------------------------------------------
-            // |       | HOME | PG UP | PG DN |  END  | VOL + |                                   |      |      |      |      |      |      |
-            // |       |   ←  |   ↑   |   ↓   |   →   | VOL - |                                   |      |      |      |      |      |      |
-            // |  DEL  | PREV | PLAY  | PAUSE |  NXT  |  MUTE |      |      |-------|      |      |      |      |      |      |      |      |
+            // |       | HOME | PG UP | PG DN |  END  | VOL + |                                   |       |      |      |      |      |      |
+            // |       |   ←  |   ↑   |   ↓   |   →   | VOL - |                                   |       |      |      |      |      |      |
+            // |  DEL  | PREV | PLAY  | PAUSE |  NXT  |  MUTE |      |      |-------|      |      |       |      |      |      |      |      |
             //                        |       | ADJ_L |       |      |      |-------|      |      | ADJ_L |      |      |      |
             bindings = <
             &trans  &kp HOME    &kp PG_UP        &kp PG_DN        &kp END    &kp C_VOL_UP                                        &trans &trans &trans &trans &trans &trans
