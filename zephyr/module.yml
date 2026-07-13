@@ -1,4 +1,3 @@
 build:
   cmake: display_module
   kconfig: display_module/Kconfig
-  dts_root: display_module
