@@ -67,9 +67,9 @@
             // |    NUM_L   |  Z  |  X  |   C    |     V     |  B    |  ESC  |   Ctrl    |------------|   OS  |    ESC   |   N   |  M  |  ,  |  .  |  / ?  |stickyShift|
             //                          | Option | RET/MOV_L | BSPC  | SPACE |stickySHIFT|------------| NUM_L | RET/SC_L | MOV_L | DEL | ALT |
             bindings = <
-            &kp TAB       &kp Q &kp W &kp E    &kp R         &kp T                                                          &kp Y     &kp U   &kp I     &kp O    &kp P    &kp TAB
-            &kp LGUI      &kp A &kp S &kp D    &kp F         &kp G                                                          &kp H     &kp J   &kp K     &kp L    &kp SEMI &kp APOS
-            &mo NUM_L     &kp Z &kp X &kp C    &kp V         &kp B    &kp ESC   &kp LCTRL            &kp RGUI  &kp ESC      &kp N     &kp M   &kp COMMA &kp DOT  &kp FSLH &skq RSHIFT
+            &kp TAB       &kp Q &kp W &kp E    &kp R         &kp T                                                          &kp Y     &kp U     &kp I     &kp O    &kp P    &kp TAB
+            &kp LGUI      &kp A &kp S &kp D    &kp F         &kp G                                                          &kp H     &kp J     &kp K     &kp L    &kp SEMI &kp APOS
+            &mo NUM_L     &kp Z &kp X &kp C    &kp V         &kp B    &kp ESC   &kp LCTRL            &kp RGUI  &kp ESC      &kp N     &kp M     &kp COMMA &kp DOT  &kp FSLH &skq RSHIFT
                                       &kp LALT &lt MOV_L RET &kp BSPC &kp SPACE &skq LSHIFT          &mo NUM_L &lt SC_L RET &mo MOV_L &kp LCTRL &kp RALT 
             >;
 
@@ -97,9 +97,9 @@
             // | ADJ_L | Play/Pause |  END   |       | PG DN |  MUTE |      |      |-------|       |       |  MUTE | PG DN |       |  END  | Play/Pause |      |
             //                               |       |       |       |      |      |-------| ADJ_L | ADJ_L |       |       |       |       | 
             bindings = <
-            &trans    &kp C_NEXT        &kp HOME   &kp UP    &kp PG_UP  &kp C_VOL_UP                                                &kp C_VOL_UP &kp PG_UP  &kp UP     &kp HOME   &kp C_NEXT       &trans
-            &trans    &kp C_PREV        &kp LEFT   &kp DOWN  &kp RIGHT  &kp C_VOL_DN                                                &kp C_VOL_DN &kp LEFT   &kp DOWN   &kp RIGHT  &kp C_PREV       &trans
-            &mo ADJ_L &kp C_PLAY_PAUSE  &kp END    &trans    &kp PG_DN  &kp C_MUTE    &trans &trans             &trans    &trans    &kp C_MUTE   &kp PG_DN  &trans     &kp END    &kp C_PLAY_PAUSE &trans
+            &trans    &kp C_NEXT        &kp HOME   &kp UP    &kp PG_UP  &kp C_VOL_UP                                                &kp C_VOL_UP &kp PG_UP  &kp UP     &kp HOME   &kp C_NEXT        &trans
+            &trans    &kp C_PREV        &kp LEFT   &kp DOWN  &kp RIGHT  &kp C_VOL_DN                                                &kp C_VOL_DN &kp LEFT   &kp DOWN   &kp RIGHT  &kp C_PREV        &trans
+            &mo ADJ_L &kp C_PLAY_PAUSE  &kp END    &trans    &kp PG_DN  &kp C_MUTE    &trans &trans             &trans    &trans    &kp C_MUTE   &kp PG_DN  &trans     &kp END    &kp C_PLAY_PAUSE  &trans
                                                    &trans    &trans     &trans        &trans &trans             &mo ADJ_L &mo ADJ_L &trans       &trans     &trans 
             >;
 

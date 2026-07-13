@@ -1,11 +1,9 @@
-# NOTE: ZMK_EXTRA_MODULES uses an absolute path — works for local builds.
-# For GitHub Actions CI, make display_module a separate GitHub repo and
-# add it to config/west.yml as a project instead.
+# ZMK's CI workflow automatically passes the repo root as ZMK_EXTRA_MODULES,
+# which picks up zephyr/module.yml at the repo root — no cmake-args needed for CI.
+# For local west builds, pass: -DZMK_EXTRA_MODULES=/home/vince/Documents/zmk-config
 ---
 include:
   - board: nice_nano_v2
     shield: kyria_rev3_left
-    cmake-args: -DZMK_EXTRA_MODULES=/home/vince/Documents/zmk-config/display_module
   - board: nice_nano_v2
     shield: kyria_rev3_right
-    cmake-args: -DZMK_EXTRA_MODULES=/home/vince/Documents/zmk-config/display_module
