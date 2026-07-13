@@ -1,6 +1,7 @@
 config CUSTOM_DISPLAY
     bool "Custom OLED display module"
     depends on ZMK_DISPLAY
+    select LV_USE_IMG
     default n
 
 config CUSTOM_DISPLAY_DEFAULT_ON
