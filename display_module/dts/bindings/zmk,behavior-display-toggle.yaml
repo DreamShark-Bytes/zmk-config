@@ -1,0 +1,8 @@
+# Copyright (c) 2024 DreamShark-Bytes
+# SPDX-License-Identifier: MIT
+
+description: Toggle custom display mode on/off
+
+compatible: "zmk,behavior-display-toggle"
+
+include: zero_param.yaml

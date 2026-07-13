@@ -1,0 +1,5 @@
+if(CONFIG_CUSTOM_DISPLAY)
+    zephyr_library_named(custom_display)
+    zephyr_library_sources(src/custom_display.c)
+    zephyr_library_include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
+endif()

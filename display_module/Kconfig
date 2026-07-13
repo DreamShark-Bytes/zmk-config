@@ -1,0 +1,9 @@
+config CUSTOM_DISPLAY
+    bool "Custom OLED display module"
+    depends on ZMK_DISPLAY
+    default n
+
+config CUSTOM_DISPLAY_DEFAULT_ON
+    bool "Start with custom display active on boot"
+    depends on CUSTOM_DISPLAY
+    default n
