@@ -7,8 +7,6 @@
 
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
-#include <zephyr/sys/util.h>
-#include <string.h>
 #include <drivers/behavior.h>
 #include <zephyr/logging/log.h>
 #include <zmk/behavior.h>
@@ -23,8 +21,9 @@ static lv_obj_t *zmk_screen = NULL;
 static lv_obj_t *custom_screen = NULL;
 static bool initialized = false;
 
-// Canvas buffer: 128x64 pixels, 1 bit per pixel = 1024 bytes
-static uint8_t canvas_buf[128 * 64 / 8];
+// Canvas buffer: 128x64 pixels, one lv_color_t per pixel.
+// With LV_COLOR_DEPTH=1, sizeof(lv_color_t)=1, so this is 8192 bytes.
+static lv_color_t canvas_buf[128 * 64];
 
 static void ensure_initialized(void) {
     if (initialized) {
@@ -36,8 +35,17 @@ static void ensure_initialized(void) {
     custom_screen = lv_obj_create(NULL);
     lv_obj_remove_style_all(custom_screen);
 
-    // Copy pixel data from test image, skipping the 8-byte palette
-    memcpy(canvas_buf, test_image.data + 8, sizeof(canvas_buf));
+    // Unpack the 1-bit image data into canvas_buf (one lv_color_t per pixel).
+    // Invert bits: the Kyria SSD1306 has hardware inversion-on, which means
+    // bit=1 appears dark. So we negate: image white (1) → canvas 0 → appears white.
+    const uint8_t *packed = test_image.data + 8; // skip 8-byte palette
+    for (int y = 0; y < 64; y++) {
+        for (int x = 0; x < 128; x++) {
+            int idx = y * 128 + x;
+            uint8_t bit = (packed[idx / 8] >> (7 - (idx % 8))) & 1;
+            canvas_buf[idx].full = bit ? 0 : 1;
+        }
+    }
 
     lv_obj_t *canvas = lv_canvas_create(custom_screen);
     lv_canvas_set_buffer(canvas, canvas_buf, 128, 64, LV_IMG_CF_TRUE_COLOR);
