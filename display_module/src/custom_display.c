@@ -7,6 +7,8 @@
 
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/util.h>
+#include <string.h>
 #include <drivers/behavior.h>
 #include <zephyr/logging/log.h>
 #include <zmk/behavior.h>
@@ -21,10 +23,9 @@ static lv_obj_t *zmk_screen = NULL;
 static lv_obj_t *custom_screen = NULL;
 static bool initialized = false;
 
-/*
- * Runs on the display work queue to avoid threading issues with LVGL.
- * Lazy-init: captures ZMK's screen on first call, builds our custom screen.
- */
+// Canvas buffer: 128x64 pixels, 1 bit per pixel = 1024 bytes
+static uint8_t canvas_buf[128 * 64 / 8];
+
 static void ensure_initialized(void) {
     if (initialized) {
         return;
@@ -33,9 +34,14 @@ static void ensure_initialized(void) {
     zmk_screen = lv_scr_act();
 
     custom_screen = lv_obj_create(NULL);
-    lv_obj_t *img = lv_img_create(custom_screen);
-    lv_img_set_src(img, &test_image);
-    lv_obj_set_pos(img, 0, 0);
+    lv_obj_remove_style_all(custom_screen);
+
+    // Copy pixel data from test image, skipping the 8-byte palette
+    memcpy(canvas_buf, test_image.data + 8, sizeof(canvas_buf));
+
+    lv_obj_t *canvas = lv_canvas_create(custom_screen);
+    lv_canvas_set_buffer(canvas, canvas_buf, 128, 64, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 0, 0);
 
     initialized = true;
 
