@@ -41,7 +41,7 @@ LOG_MODULE_REGISTER(custom_display, CONFIG_ZMK_LOG_LEVEL);
 // ---------------------------------------------------------------------------
 // Layer names (defined via macro in display_config.h)
 // ---------------------------------------------------------------------------
-static const char *const layer_names[LAYER_NAME_COUNT] = { LAYER_NAMES_LIST };
+static const char *const layer_names[LAYER_NAME_COUNT] __attribute__((unused)) = { LAYER_NAMES_LIST };
 
 // ---------------------------------------------------------------------------
 // Display state
