@@ -29,7 +29,7 @@
     combos {
         compatible = "zmk,combos";
         combo_adj_l {
-            timeout-ms = <100>;
+            timeout-ms = <200>;
             key-positions = <24 45>;
             bindings = <&mo ADJ_L>;
         };
