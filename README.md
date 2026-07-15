@@ -19,7 +19,8 @@ The firmware includes a custom Zephyr module (`display_module/`) that extends th
 
 ### Current features
 
-- **`&display_toggle`** — a custom ZMK behavior that switches between the stock display (battery, Bluetooth status, layer) and a custom display screen. Bound to the function layer (ADJ_L).
+- **`&display_toggle`** — switches between the stock ZMK display and the custom screen. Bound to ADJ_L.
+- **`&demo_cycle`** — steps through demo/mockup images on the custom screen. Bound to ADJ_L next to `&display_toggle`. Wraps after the last image.
 
 ### Display layout
 
@@ -28,20 +29,41 @@ The firmware includes a custom Zephyr module (`display_module/`) that extends th
 | Left | Stock ZMK: Bluetooth status + profile, battery %, layer indicator |
 | Right | Custom: virtual pet (in development) |
 
+### Asset structure
+
+```
+resources/
+  pet/      ← 60×60 pet sprites (.png source + generated .h)
+  icons/    ← small UI icons (.png source + generated .h)
+  fonts/    ← TTF/OTF source files + generated LVGL .c files + license files
+  demos/    ← generated headers from demos/*.png (do not edit manually)
+demos/      ← source PNG mockups and font reference images
+```
+
 ### Adding images and sprites
 
-Use `tools/convert_image.py` to convert PNG files to LVGL C arrays:
+Use `tools/convert_image.py` to convert a PNG to an LVGL C header:
 
 ```bash
-# Single image
-python3 tools/convert_image.py image.png > display_module/src/my_image.h
+# Single image — output to the appropriate resources/ subfolder
+python3 tools/convert_image.py image.png > resources/pet/my_image.h
 
 # Sprite sheet (e.g. 4 frames, 60×60 each)
 python3 tools/convert_image.py sheet.png --sprite-w 60 --sprite-h 60 \
-  --names idle_0 idle_1 walk_0 walk_1 > display_module/src/sprites.h
+  --names idle_0 idle_1 walk_0 walk_1 > resources/pet/sprites.h
 ```
 
 Images must be PNG. The display is **monochrome** — pixels with luminance ≥ 128 render as white (lit), below 128 as black (off). Grey and color pixels are converted automatically.
+
+### Demo image cycling
+
+To add a mockup or test image to the on-device cycle:
+
+1. Drop the PNG in `demos/`
+2. Run `python3 tools/gen_demos.py` from the project root
+3. Commit the generated files in `resources/demos/` before building
+
+`gen_demos.py` converts every PNG in `demos/` and regenerates `resources/demos/demo_list.h` with the full image array.
 
 ### Building locally
 

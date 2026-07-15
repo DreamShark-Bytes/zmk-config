@@ -1,6 +1,7 @@
 /*
- * Custom display module for Kyria rev3
- * Provides &display_toggle behavior and custom screen switching.
+ * Custom display module for Kyria rev3.
+ * Provides &display_toggle (switch stock ↔ custom screen) and
+ * &demo_cycle (step through demo images on the custom screen).
  */
 
 #define DT_DRV_COMPAT zmk_behavior_display_toggle
@@ -13,17 +14,38 @@
 #include <zmk/display.h>
 #include <lvgl.h>
 
-#include "test_image.h"
+#include "demo_list.h"
 
 LOG_MODULE_REGISTER(custom_display, CONFIG_ZMK_LOG_LEVEL);
 
 static lv_obj_t *zmk_screen = NULL;
 static lv_obj_t *custom_screen = NULL;
+static lv_obj_t *canvas = NULL;
 static bool initialized = false;
+static int demo_idx = 0;
 
 // Canvas buffer: 128x64 pixels, one lv_color_t per pixel.
 // With LV_COLOR_DEPTH=1, sizeof(lv_color_t)=1, so this is 8192 bytes.
 static lv_color_t canvas_buf[128 * 64];
+
+// Unpack an INDEXED_1BIT image into canvas_buf and trigger a redraw.
+// Inverts bits: SSD1306 has hardware inversion-on, so bit=1 appears dark.
+// Negating here means image white (1) → canvas 0 → displays as white.
+static void load_image(const lv_img_dsc_t *img) {
+    const uint8_t *packed = img->data + 8; // skip 8-byte INDEXED_1BIT palette
+    int w = img->header.w;
+    int h = img->header.h;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int idx = y * w + x;
+            uint8_t bit = (packed[idx / 8] >> (7 - (idx % 8))) & 1;
+            canvas_buf[idx].full = bit ? 0 : 1;
+        }
+    }
+    if (canvas) {
+        lv_obj_invalidate(canvas);
+    }
+}
 
 static void ensure_initialized(void) {
     if (initialized) {
@@ -35,19 +57,9 @@ static void ensure_initialized(void) {
     custom_screen = lv_obj_create(NULL);
     lv_obj_remove_style_all(custom_screen);
 
-    // Unpack the 1-bit image data into canvas_buf (one lv_color_t per pixel).
-    // Invert bits: the Kyria SSD1306 has hardware inversion-on, which means
-    // bit=1 appears dark. So we negate: image white (1) → canvas 0 → appears white.
-    const uint8_t *packed = test_image.data + 8; // skip 8-byte palette
-    for (int y = 0; y < 64; y++) {
-        for (int x = 0; x < 128; x++) {
-            int idx = y * 128 + x;
-            uint8_t bit = (packed[idx / 8] >> (7 - (idx % 8))) & 1;
-            canvas_buf[idx].full = bit ? 0 : 1;
-        }
-    }
+    load_image(demo_images[0]);
 
-    lv_obj_t *canvas = lv_canvas_create(custom_screen);
+    canvas = lv_canvas_create(custom_screen);
     lv_canvas_set_buffer(canvas, canvas_buf, 128, 64, LV_IMG_CF_TRUE_COLOR);
     lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 0, 0);
 
@@ -57,6 +69,8 @@ static void ensure_initialized(void) {
         lv_scr_load(custom_screen);
     }
 }
+
+// --- display_toggle behavior ---
 
 static void do_toggle(struct k_work *work) {
     ensure_initialized();
@@ -93,3 +107,17 @@ BEHAVIOR_DT_INST_DEFINE(0, NULL, NULL, NULL, NULL, POST_KERNEL,
                          &display_toggle_driver_api);
 
 #endif /* DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT) */
+
+// --- demo_cycle trigger (called from demo_cycle.c) ---
+
+static void do_demo_cycle(struct k_work *work) {
+    ensure_initialized();
+    demo_idx = (demo_idx + 1) % demo_image_count;
+    load_image(demo_images[demo_idx]);
+}
+
+K_WORK_DEFINE(demo_cycle_work, do_demo_cycle);
+
+void demo_cycle_trigger(void) {
+    k_work_submit_to_queue(zmk_display_work_q(), &demo_cycle_work);
+}

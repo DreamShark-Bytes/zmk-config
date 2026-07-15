@@ -35,13 +35,24 @@ The display is defined in the Kyria shield's devicetree (DTS) inside the ZMK sou
 - Switches between stock ZMK display and custom display screen
 - Both screens remain live; inactive screen continues updating in background
 
+### Asset structure
+
+| Directory | Contents |
+|---|---|
+| `resources/pet/` | 60×60 pet sprites — PNG source + generated `.h` |
+| `resources/icons/` | Small UI icons — PNG source + generated `.h` |
+| `resources/fonts/` | TTF/OTF source + generated LVGL `.c` files + license files |
+| `resources/demos/` | Generated headers from `demos/*.png` — do not edit manually |
+| `demos/` | Source PNG mockups and font reference images |
+
 ### Image/sprite format
 
 - Format: LVGL `INDEXED_1BIT` (2-entry palette + 1 bit/pixel, MSB first)
-- Conversion: `tools/convert_image.py` (PNG → C header)
+- Conversion: `tools/convert_image.py` (PNG → C header, output to appropriate `resources/` subfolder)
 - Sprite sheet support: `--sprite-w`, `--sprite-h`, `--names` flags; outputs `sprite_frames[]` array
 - Threshold default: luminance ≥ 128 → white pixel. Override with `--threshold`
 - Canvas size for pet sprites: **60×60 pixels** (fits both OLED 128×64 and Nice!View 160×68)
+- Demo cycling: `tools/gen_demos.py` converts all `demos/*.png` and regenerates `resources/demos/demo_list.h`
 
 ### Dynamic display layout
 
@@ -79,10 +90,17 @@ Pet state tracks on the central and syncs to peripheral via BLE split transport 
 
 ### Custom behaviors
 
-| Behavior | Compatible | Description |
-|---|---|---|
-| `&skq` | `zmk,behavior-sticky-key` | Sticky shift with quick-release (releases on key-down, not key-up) |
-| `&display_toggle` | `zmk,behavior-display-toggle` | Toggle custom display on/off |
+| Behavior | Compatible | Description | Source |
+|---|---|---|---|
+| `&skq` | `zmk,behavior-sticky-key` | Sticky shift with quick-release (releases on key-down, not key-up) | Defined in `config/kyria_rev3.keymap` behaviors block |
+| `&display_toggle` | `zmk,behavior-display-toggle` | Toggle between stock ZMK display and custom screen | C driver in `display_module/src/custom_display.c`; DTS binding in `display_module/dts/bindings/zmk,behavior-display-toggle.yaml`; instantiated in `config/kyria_rev3.keymap` behaviors block |
+| `&demo_cycle` | `zmk,behavior-demo-cycle` | Cycle through demo images on the custom screen (wraps) | Thin driver in `display_module/src/demo_cycle.c`; logic in `custom_display.c` via `demo_cycle_trigger()`; DTS binding in `display_module/dts/bindings/zmk,behavior-demo-cycle.yaml` |
+
+### Combos
+
+| Combo | Key positions | Binding | Description |
+|---|---|---|---|
+| `combo_adj_l` | 24 + 45 | `&mo ADJ_L` | Both `&mo NUM_L` keys held simultaneously activates ADJ_L |
 
 ## Decision Log
 
@@ -96,3 +114,6 @@ Pet state tracks on the central and syncs to peripheral via BLE split transport 
 | 2026-07-13 | 60×60 pet sprite canvas | Fits both OLED (128×64) and Nice!View (160×68) with margin |
 | 2026-07-13 | Pet on right half (peripheral) | User preference; complexity of BLE state sync is a known tradeoff |
 | 2026-07-13 | Font sizes as compiled-in presets | LVGL fonts are static C arrays; true runtime scaling not practical on embedded |
+| 2026-07-14 | Script-based demo generation (not CMake) | CMake glob re-runs at configure time only; a one-command script is simpler and more explicit for a temporary dev tool |
+| 2026-07-14 | Modifier alerts (CAPS/INSERT/NUM) dropped | Self-revealing through typing feedback; not worth screen space |
+| 2026-07-14 | MockUp_4 as layout reference | Settled: left column (BT, battery, layer) + key count at bottom; pet fills right side |
