@@ -1,7 +1,14 @@
 /*
  * Custom display module for Kyria rev3.
- * Provides &display_toggle (switch stock ↔ custom screen) and
- * &demo_cycle (step through demo images on the custom screen).
+ *
+ * Three display states cycled by &display_toggle:
+ *   STOCK  — ZMK built-in screen (BT, battery, layer number)
+ *   CUSTOM — Real layout: info column + pet area
+ *   DEMO   — Canvas showing mockup images; advance with &demo_cycle
+ *
+ * Configure layout, fonts, and layer names in display_config.h.
+ * Wire live data (battery %, layer index, BT status) in the
+ * "DATA CALLBACKS — Phase 2" section below.
  */
 
 #define DT_DRV_COMPAT zmk_behavior_display_toggle
@@ -13,26 +20,93 @@
 #include <zmk/behavior.h>
 #include <zmk/display.h>
 #include <lvgl.h>
+#include <stdio.h>
 
+#include "display_config.h"
 #include "demo_list.h"
+
+#include "icon_link.h"
+#include "icon_link_broken.h"
+#include "icon_bt.h"
+#include "icon_check.h"
+#include "icon_x.h"
+#include "icon_battery.h"
+#include "icon_lightning.h"
+#include "icon_os_mac.h"
+#include "icon_os_windows.h"
+#include "pet_temp_image.h"
 
 LOG_MODULE_REGISTER(custom_display, CONFIG_ZMK_LOG_LEVEL);
 
-static lv_obj_t *zmk_screen = NULL;
-static lv_obj_t *custom_screen = NULL;
-static lv_obj_t *canvas = NULL;
+// ---------------------------------------------------------------------------
+// Layer names (defined via macro in display_config.h)
+// ---------------------------------------------------------------------------
+static const char *const layer_names[LAYER_NAME_COUNT] = { LAYER_NAMES_LIST };
+
+// ---------------------------------------------------------------------------
+// Display state
+// ---------------------------------------------------------------------------
+typedef enum {
+    DISPLAY_STATE_STOCK = 0,
+    DISPLAY_STATE_CUSTOM,
+    DISPLAY_STATE_DEMO,
+    DISPLAY_STATE_COUNT,
+} display_state_t;
+
+static display_state_t current_state = DISPLAY_STATE_STOCK;
 static bool initialized = false;
+
+// ---------------------------------------------------------------------------
+// Screens
+// ---------------------------------------------------------------------------
+static lv_obj_t *zmk_screen  = NULL;  // ZMK stock screen (reference only)
+static lv_obj_t *real_screen = NULL;  // CUSTOM state
+static lv_obj_t *demo_screen = NULL;  // DEMO state
+
+// Demo canvas
+static lv_color_t canvas_buf[DISPLAY_WIDTH * DISPLAY_HEIGHT];
+static lv_obj_t *canvas = NULL;
 static int demo_idx = 0;
 
-// Canvas buffer: 128x64 pixels, one lv_color_t per pixel.
-// With LV_COLOR_DEPTH=1, sizeof(lv_color_t)=1, so this is 8192 bytes.
-static lv_color_t canvas_buf[128 * 64];
+// ---------------------------------------------------------------------------
+// Real layout widget handles (update via Phase 2 callbacks)
+// ---------------------------------------------------------------------------
+static lv_obj_t *w_link_icon     = NULL;
+static lv_obj_t *w_bt_icon       = NULL;
+static lv_obj_t *w_bt_profile    = NULL;
+static lv_obj_t *w_bt_conn_icon  = NULL;
+static lv_obj_t *w_battery_icon  = NULL;
+static lv_obj_t *w_battery_pct   = NULL;
+static lv_obj_t *w_os_icon       = NULL;
+static lv_obj_t *w_layer_l       = NULL;
+static lv_obj_t *w_layer_colon   = NULL;
+static lv_obj_t *w_layer_name    = NULL;
+static lv_obj_t *w_status        = NULL;
 
-// Unpack an INDEXED_1BIT image into canvas_buf and trigger a redraw.
-// Inverts bits: SSD1306 has hardware inversion-on, so bit=1 appears dark.
-// Negating here means image white (1) → canvas 0 → displays as white.
-static void load_image(const lv_img_dsc_t *img) {
-    const uint8_t *packed = img->data + 8; // skip 8-byte INDEXED_1BIT palette
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+static lv_obj_t *make_img(lv_obj_t *parent, const lv_img_dsc_t *src, int x, int y) {
+    lv_obj_t *img = lv_img_create(parent);
+    lv_img_set_src(img, src);
+    lv_obj_set_pos(img, x, y);
+    return img;
+}
+
+static lv_obj_t *make_label(lv_obj_t *parent, const lv_font_t *font,
+                             const char *text, int x, int y) {
+    lv_obj_t *lbl = lv_label_create(parent);
+    lv_obj_set_style_text_font(lbl, font, 0);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_pos(lbl, x, y);
+    return lbl;
+}
+
+// ---------------------------------------------------------------------------
+// Demo screen (canvas-based, for mockup images)
+// ---------------------------------------------------------------------------
+static void load_demo_image(const lv_img_dsc_t *img) {
+    const uint8_t *packed = img->data + 8;
     int w = img->header.w;
     int h = img->header.h;
     for (int y = 0; y < h; y++) {
@@ -47,39 +121,176 @@ static void load_image(const lv_img_dsc_t *img) {
     }
 }
 
+static void build_demo_screen(void) {
+    demo_screen = lv_obj_create(NULL);
+    lv_obj_remove_style_all(demo_screen);
+    load_demo_image(demo_images[0]);
+    canvas = lv_canvas_create(demo_screen);
+    lv_canvas_set_buffer(canvas, canvas_buf, DISPLAY_WIDTH, DISPLAY_HEIGHT,
+                         LV_IMG_CF_TRUE_COLOR);
+    lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 0, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Real layout screen
+// ---------------------------------------------------------------------------
+static void build_real_screen(void) {
+    real_screen = lv_obj_create(NULL);
+    lv_obj_remove_style_all(real_screen);
+
+    // --- TOP ROW: split link icon | BT icon | profile# | conn icon ---
+    // All icons bleed 1px off the top (ROW_TOP_Y = -1).
+    // x = -1 bleeds the icon's left pixel off-screen for flush-left look.
+    int x = -1;
+    w_link_icon = make_img(real_screen, &icon_link, x, ROW_TOP_Y);
+
+    x = -1 + 13 + ICON_TEXT_GAP;
+    w_bt_icon = make_img(real_screen, &icon_bt, x, ROW_TOP_Y);
+
+    x += 13 + ICON_TEXT_GAP;
+    w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y);
+
+    // Profile number is 1 character wide; estimate 9px for size-12 digit.
+    x += 9 + ICON_TEXT_GAP;
+    w_bt_conn_icon = make_img(real_screen, &icon_check, x, ROW_TOP_Y);
+
+    // --- BATTERY ROW ---
+    x = -1;
+    w_battery_icon = make_img(real_screen, &icon_battery, x, ROW_BATTERY_Y);
+
+    x = -1 + 13 + ICON_TEXT_GAP;
+    w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%", x, ROW_BATTERY_Y);
+
+    // --- LAYER ROW: OS icon | "L" | ":" | name ---
+    // Baseline-align "L" (size 12), ":" (size 8), name (size 9).
+    //   size-12 ascent = line_height - base_line = 16 - 3 = 13
+    //   size-8  ascent = 9 - 2 = 7  → offset down by (13 - 7) = 6
+    //   size-9  ascent = 11 - 2 = 9 → offset down by (13 - 9) = 4
+    // These match LAYER_COLON_Y_OFFSET and LAYER_NAME_Y_OFFSET in display_config.h.
+    x = -1;
+    w_os_icon = make_img(real_screen, &icon_os_windows, x, ROW_LAYER_Y);
+
+    x = -1 + 13 + ICON_TEXT_GAP;
+    w_layer_l = make_label(real_screen, FONT_LAYER_L, "L", x, ROW_LAYER_Y);
+
+    x += 10;
+    w_layer_colon = make_label(real_screen, FONT_LAYER_COLON, ":",
+                               x, ROW_LAYER_Y + LAYER_COLON_Y_OFFSET);
+
+    x += 4;
+    int name_max_w = PET_AREA_X - x - 1;
+    w_layer_name = make_label(real_screen, FONT_LAYER_NAME, "BASE",
+                              x, ROW_LAYER_Y + LAYER_NAME_Y_OFFSET);
+    lv_obj_set_width(w_layer_name, name_max_w);
+    lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
+
+    // --- STATUS STRING: bottom-anchored ---
+    // font_badcomic_11: line_height = 13. Bottom row top = 64 - 13 = 51.
+    int status_y = DISPLAY_HEIGHT - 13;
+    w_status = make_label(real_screen, FONT_STATUS_TEXT,
+                          STATUS_ICON_CURRENCY "0", -1, status_y);
+    lv_obj_set_width(w_status, PET_AREA_X + 1);
+    lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
+
+    // --- PET AREA ---
+    // Container clips content that moves outside its bounds (pet walking).
+    lv_obj_t *pet_container = lv_obj_create(real_screen);
+    lv_obj_remove_style_all(pet_container);
+    lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
+    lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
+
+    lv_obj_t *pet_img = lv_img_create(pet_container);
+    lv_img_set_src(pet_img, &pet_temp_image);
+    lv_obj_set_pos(pet_img, 0, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Initialization
+// ---------------------------------------------------------------------------
 static void ensure_initialized(void) {
-    if (initialized) {
-        return;
-    }
+    if (initialized) return;
 
     zmk_screen = lv_scr_act();
-
-    custom_screen = lv_obj_create(NULL);
-    lv_obj_remove_style_all(custom_screen);
-
-    load_image(demo_images[0]);
-
-    canvas = lv_canvas_create(custom_screen);
-    lv_canvas_set_buffer(canvas, canvas_buf, 128, 64, LV_IMG_CF_TRUE_COLOR);
-    lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 0, 0);
-
+    build_demo_screen();
+    build_real_screen();
     initialized = true;
 
     if (IS_ENABLED(CONFIG_CUSTOM_DISPLAY_DEFAULT_ON)) {
-        lv_scr_load(custom_screen);
+        lv_scr_load(real_screen);
+        current_state = DISPLAY_STATE_CUSTOM;
     }
 }
 
-// --- display_toggle behavior ---
+// ---------------------------------------------------------------------------
+// State transitions
+// ---------------------------------------------------------------------------
+static void set_display_state(display_state_t state) {
+    current_state = state;
+    switch (state) {
+    case DISPLAY_STATE_STOCK:
+        lv_scr_load(zmk_screen);
+        break;
+    case DISPLAY_STATE_CUSTOM:
+        lv_scr_load(real_screen);
+        break;
+    case DISPLAY_STATE_DEMO:
+        lv_scr_load(demo_screen);
+        break;
+    default:
+        break;
+    }
+}
 
+// ---------------------------------------------------------------------------
+// DATA CALLBACKS — Phase 2
+// Uncomment and implement these to wire live ZMK state to the layout widgets.
+// ---------------------------------------------------------------------------
+
+// void custom_display_set_layer(uint8_t layer_idx) {
+//     if (!initialized) return;
+//     char num_buf[4];
+//     const char *name = (layer_idx < LAYER_NAME_COUNT) ? layer_names[layer_idx] : NULL;
+//     if (name) {
+//         lv_label_set_text(w_layer_name, name);
+//     } else {
+//         snprintf(num_buf, sizeof(num_buf), "%d", layer_idx);
+//         lv_label_set_text(w_layer_name, num_buf);
+//     }
+// }
+
+// void custom_display_set_battery(uint8_t pct, bool charging) {
+//     if (!initialized) return;
+//     char buf[6];
+//     snprintf(buf, sizeof(buf), "%d%%", pct);
+//     lv_label_set_text(w_battery_pct, buf);
+//     lv_img_set_src(w_battery_icon, charging ? &icon_lightning : &icon_battery);
+// }
+
+// void custom_display_set_bt(uint8_t profile, bool connected) {
+//     if (!initialized) return;
+//     char buf[2] = { '1' + profile, '\0' };
+//     lv_label_set_text(w_bt_profile, buf);
+//     lv_img_set_src(w_bt_conn_icon, connected ? &icon_check : &icon_x);
+// }
+
+// void custom_display_set_split_connected(bool connected) {
+//     if (!initialized) return;
+//     lv_img_set_src(w_link_icon, connected ? &icon_link : &icon_link_broken);
+// }
+
+// void custom_display_set_status(const char *text) {
+//     if (!initialized) return;
+//     lv_label_set_text(w_status, text);
+// }
+
+// ---------------------------------------------------------------------------
+// display_toggle behavior
+// ---------------------------------------------------------------------------
 static void do_toggle(struct k_work *work) {
     ensure_initialized();
-
-    if (lv_scr_act() == custom_screen) {
-        lv_scr_load(zmk_screen);
-    } else {
-        lv_scr_load(custom_screen);
-    }
+    display_state_t next = (current_state + 1) % DISPLAY_STATE_COUNT;
+    set_display_state(next);
 }
 
 K_WORK_DEFINE(toggle_work, do_toggle);
@@ -108,12 +319,14 @@ BEHAVIOR_DT_INST_DEFINE(0, NULL, NULL, NULL, NULL, POST_KERNEL,
 
 #endif /* DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT) */
 
-// --- demo_cycle trigger (called from demo_cycle.c) ---
-
+// ---------------------------------------------------------------------------
+// demo_cycle trigger (called from demo_cycle.c)
+// ---------------------------------------------------------------------------
 static void do_demo_cycle(struct k_work *work) {
     ensure_initialized();
+    if (current_state != DISPLAY_STATE_DEMO) return;
     demo_idx = (demo_idx + 1) % demo_image_count;
-    load_image(demo_images[demo_idx]);
+    load_demo_image(demo_images[demo_idx]);
 }
 
 K_WORK_DEFINE(demo_cycle_work, do_demo_cycle);

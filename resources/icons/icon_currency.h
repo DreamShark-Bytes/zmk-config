@@ -1,0 +1,23 @@
+#pragma once
+#include <lvgl.h>
+// Generated from resources/icons/icon_currency.png by tools/convert_image.py
+
+// 13x14 INDEXED_1BIT — 36 bytes (28 pixel + 8 palette)
+static const uint8_t icon_currency_data[] = {
+    0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x0F, 0x80, 0x10, 0x40, 0x25, 0x20,
+    0x45, 0x10, 0x50, 0x50, 0x50, 0x50, 0x47, 0x10, 0x4F, 0x90, 0x4F, 0x90, 0x25, 0x20, 0x10, 0x40,
+    0x0F, 0x80, 0x00, 0x00,
+};
+
+const lv_img_dsc_t icon_currency = {
+    .header = {
+        .cf = LV_IMG_CF_INDEXED_1BIT,
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 13,
+        .h = 14,
+    },
+    .data_size = sizeof(icon_currency_data),
+    .data = icon_currency_data,
+};
+

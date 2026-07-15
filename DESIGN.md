@@ -39,11 +39,38 @@ The display is defined in the Kyria shield's devicetree (DTS) inside the ZMK sou
 
 | Directory | Contents |
 |---|---|
-| `resources/pet/` | 60×60 pet sprites — PNG source + generated `.h` |
-| `resources/icons/` | Small UI icons — PNG source + generated `.h` |
-| `resources/fonts/` | TTF/OTF source + generated LVGL `.c` files + license files |
+| `resources/pet/` | Pet sprites — PNG source + generated `.h` (convert_image.py) |
+| `resources/icons/` | UI icons — PNG source + generated `.h` (convert_image.py) |
+| `resources/fonts/BadComic_Font_0_98/` | OFL font source files (committed — license permits) |
+| `resources/fonts/generated/` | lv_font_conv output `.c` files — do not edit manually |
 | `resources/demos/` | Generated headers from `demos/*.png` — do not edit manually |
 | `demos/` | Source PNG mockups and font reference images |
+
+### Font pipeline
+
+- Text font: **BadComic-Regular.ttf** (SIL OFL 1.1 — may be committed to repo with attribution)
+- Sizes built: 8px (layer colon), 9px (layer name), 11px (status string + inline icons), 12px (battery, BT profile, layer "L")
+- Build command: `bash tools/build_font.sh` — rebuilds all sizes; re-run after adding icons or changing sizes
+- Inline status icons: `tools/png_to_icon_font.py` converts a PNG to a single-glyph TTF at a Unicode private-use code point (U+E001+), then `lv_font_conv` merges it with BadComic into one font `.c` file; the icon appears inline in label strings using its UTF-8 escape sequence
+- Current icon code points: `U+E001` = `icon_currency` (keycount / status prefix)
+- Fake bold: deferred — `build_font.sh` has a TODO stub; when implemented, `tools/apply_fake_bold.py` will post-process glyph bitmaps (1px right shift + OR) at build time, zero runtime cost
+
+### Icon asset design
+
+- All icons: 13×14px total with **1px bleed baked in on all sides** (12×13 white content area)
+- Pet area image: 62×62px total with 1px bleed (61×61 content)
+- Placement rule: to bleed off a screen edge, set the object's position to -1 toward that edge (e.g., left-edge icon at x=-1); LVGL clips the bleed pixel naturally
+- Icons are `INDEXED_1BIT` (`lv_img_dsc_t`); inline status icons are embedded in the merged font as glyph bitmaps
+
+### Display configuration
+
+- All user-tunable constants in `display_module/src/display_config.h`:
+  - Layout dimensions and split point (PET_AREA_X = 66)
+  - Row y-positions and baseline alignment offsets (tunable after hardware test)
+  - Font selections (swap by changing macro, no C code changes)
+  - Layer names array (via `LAYER_NAMES_LIST` macro — avoids multiple-definition issues across TUs)
+  - Status string: abbreviation threshold, marquee speed, inline icon code points
+- To add a new inline status icon: add PNG → run `png_to_icon_font.py` → add to `build_font.sh` → add code point macro to `display_config.h`
 
 ### Image/sprite format
 
@@ -93,8 +120,18 @@ Pet state tracks on the central and syncs to peripheral via BLE split transport 
 | Behavior | Compatible | Description | Source |
 |---|---|---|---|
 | `&skq` | `zmk,behavior-sticky-key` | Sticky shift with quick-release (releases on key-down, not key-up) | Defined in `config/kyria_rev3.keymap` behaviors block |
-| `&display_toggle` | `zmk,behavior-display-toggle` | Toggle between stock ZMK display and custom screen | C driver in `display_module/src/custom_display.c`; DTS binding in `display_module/dts/bindings/zmk,behavior-display-toggle.yaml`; instantiated in `config/kyria_rev3.keymap` behaviors block |
-| `&demo_cycle` | `zmk,behavior-demo-cycle` | Cycle through demo images on the custom screen (wraps) | Thin driver in `display_module/src/demo_cycle.c`; logic in `custom_display.c` via `demo_cycle_trigger()`; DTS binding in `display_module/dts/bindings/zmk,behavior-demo-cycle.yaml` |
+| `&display_toggle` | `zmk,behavior-display-toggle` | Cycles through three display states: STOCK → CUSTOM → DEMO → STOCK | C driver in `display_module/src/custom_display.c`; DTS binding in `display_module/dts/bindings/zmk,behavior-display-toggle.yaml` |
+| `&demo_cycle` | `zmk,behavior-demo-cycle` | Advance demo images; **no-op unless currently in DEMO state** | Thin driver in `display_module/src/demo_cycle.c`; logic in `custom_display.c` via `demo_cycle_trigger()` |
+
+### Display states
+
+| State | Screen shown | Activated by |
+|---|---|---|
+| STOCK | ZMK built-in (BT, battery, layer number) | `&display_toggle` |
+| CUSTOM | Real layout: info column + pet area | `&display_toggle` |
+| DEMO | Canvas showing mockup PNG images | `&display_toggle` |
+
+`&demo_cycle` advances the demo image only when in DEMO state; pressing it in STOCK or CUSTOM is a no-op.
 
 ### Combos
 
@@ -117,3 +154,13 @@ Pet state tracks on the central and syncs to peripheral via BLE split transport 
 | 2026-07-14 | Script-based demo generation (not CMake) | CMake glob re-runs at configure time only; a one-command script is simpler and more explicit for a temporary dev tool |
 | 2026-07-14 | Modifier alerts (CAPS/INSERT/NUM) dropped | Self-revealing through typing feedback; not worth screen space |
 | 2026-07-14 | MockUp_4 as layout reference | Settled: left column (BT, battery, layer) + key count at bottom; pet fills right side |
+| 2026-07-15 | Three-state display toggle (STOCK / CUSTOM / DEMO) | Separates real layout from dev mockup mode; users never accidentally see demo images in normal use |
+| 2026-07-15 | demo_cycle is a no-op outside DEMO state | Prevents accidental image cycling while using the real layout |
+| 2026-07-15 | display_config.h as single user-config file | All layout, font, and layer-name constants in one place; user never needs to touch C display code for routine customization |
+| 2026-07-15 | LAYER_NAMES_LIST as a macro, not a static array in the header | Avoids multiple-definition linker errors when header is included from multiple translation units |
+| 2026-07-15 | BadComic-Regular (OFL 1.1) as display font | OFL permits committing TTF to public repo with attribution; Hawtpixel Jumping (previous candidate) is donationware and cannot be distributed |
+| 2026-07-15 | Inline status icons via merged lv_font_conv font | png_to_icon_font.py converts PNG → single-glyph TTF at U+E001+; lv_font_conv merges with BadComic; icon appears inline in label strings and scrolls with marquee |
+| 2026-07-15 | 1px bleed baked into all icon/pet assets | Eliminates odd pixel artifacts at screen edges; placement at x/y = -1 bleeds the pixel off-screen naturally; LVGL clips automatically |
+| 2026-07-15 | Pet area 62×62 container, flush right, vertically centered | Container clips content; walking pet that moves left of x=PET_AREA_X is clipped without affecting info column |
+| 2026-07-15 | Fake-bold deferred | BadComic has no bold TTF; 1px shift+OR post-process is the planned approach (build_font.sh TODO stub); deferred until layout is hardware-verified |
+| 2026-07-15 | Phase 2 data callbacks stubbed as commented-out functions | Real layout builds and displays placeholder data first; wiring live ZMK state is a separate step after hardware rendering is confirmed |
