@@ -26,6 +26,7 @@
 #define CLPSTD_L  7
 
 / {
+/*
     combos {
         compatible = "zmk,combos";
         combo_adj_l {
@@ -34,6 +35,8 @@
             bindings = <&mo ADJ_L>;
         };
     };
+*/
+
 
     behaviors {
         display_toggle: display_toggle {
@@ -91,15 +94,15 @@
         };
         number_layer {
             // ---------------------------------------------------------------------------------------------------------------------------------
-            // |     |  +  |  7  |  8  |   9   |  *  |                               |   *   |   7   |  8   |  9  |  +  |     |
-            // |  =  |  0  |  4  |  5  |   6   |  .  |                               |   .   |   4   |  5   |  6  |  0  |  =  |
-            // |     |  -  |  1  |  2  |   3   |  /  |     |      |------|     |     |   /   |   1   |  2   |  3  |  -  |     |
-            //                   |     | ADJ_L | DEL | RET |      |------|     |     | ADJ_L | ADJ_L | BSPC |     |
+            // |     |  +  |  7  |  8  |   9   |  *  |                                   |   *   |   7   |  8   |  9  |  +  |     |
+            // |  =  |  0  |  4  |  5  |   6   |  .  |                                   |   .   |   4   |  5   |  6  |  0  |  =  |
+            // |     |  -  |  1  |  2  |   3   |  /  |     |      |------|       |       |   /   |   1   |  2   |  3  |  -  |     |
+            //                   |     | ADJ_L | DEL | RET |      |------| ADJ_L | ADJ_L | ADJ_L |  BSPC |      |
             bindings = <
-            &trans    &kp KP_PLUS  &kp KP_N7 &kp KP_N8 &kp KP_N9 &kp KP_MULTIPLY                                       &kp KP_MULTIPLY &kp KP_N7 &kp KP_N8 &kp KP_N9 &kp KP_PLUS  &trans
-            &kp EQUAL &kp KP_N0    &kp KP_N4 &kp KP_N5 &kp KP_N6 &kp KP_DOT                                            &kp KP_DOT      &kp KP_N4 &kp KP_N5 &kp KP_N6 &kp KP_N0    &kp EQUAL
-            &trans    &kp KP_MINUS &kp KP_N1 &kp KP_N2 &kp KP_N3 &kp KP_DIVIDE &trans   &trans        &trans &trans    &kp KP_DIVIDE   &kp KP_N1 &kp KP_N2 &kp KP_N3 &kp KP_MINUS &trans
-                                             &trans    &mo ADJ_L &kp DEL       &kp RET  &trans        &trans &mo ADJ_L &mo ADJ_L       &kp BSPC    &trans
+            &trans    &kp KP_PLUS  &kp KP_N7 &kp KP_N8 &kp KP_N9 &kp KP_MULTIPLY                                          &kp KP_MULTIPLY &kp KP_N7 &kp KP_N8 &kp KP_N9 &kp KP_PLUS  &trans
+            &kp EQUAL &kp KP_N0    &kp KP_N4 &kp KP_N5 &kp KP_N6 &kp KP_DOT                                               &kp KP_DOT      &kp KP_N4 &kp KP_N5 &kp KP_N6 &kp KP_N0    &kp EQUAL
+            &mo ADJ_L &kp KP_MINUS &kp KP_N1 &kp KP_N2 &kp KP_N3 &kp KP_DIVIDE &trans   &trans        &trans    &trans    &kp KP_DIVIDE   &kp KP_N1 &kp KP_N2 &kp KP_N3 &kp KP_MINUS &trans
+                                             &trans    &mo ADJ_L &kp DEL       &kp RET  &trans        &mo ADJ_L &mo ADJ_L &mo ADJ_L       &kp BSPC  &trans
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;
