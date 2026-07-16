@@ -13,6 +13,68 @@ Settled decisions and stable architecture. Updated only when a decision is final
 | Display   | SSD1306 OLED, 128×64px, 1-bit mono | Both halves; I²C; ~27mm × 14mm; ~120 PPI |
 | Battery   | 14500 Li-ion 3.7V ~1000mAh         | One per half                             |
 
+### Hardware limitations & requirements
+
+**nRF52840 (Nice!Nano v2)**
+- Flash: 1MB total — ZMK firmware + compiled fonts + sprite assets all share this budget. Large sprite sheets or many font sizes will push against this limit.
+- RAM: 256KB — the demo canvas buffer alone is 128×64 × 1 byte = 8KB. LVGL heap and Zephyr stacks compete for the rest.
+- No filesystem — all assets (fonts, sprites, icons) must be compiled-in C arrays (`lv_img_dsc_t` headers). There is no FAT/LittleFS available for loading images at runtime.
+- BLE split transport — central (left) ↔ peripheral (right) communicate over BLE; state sync (pet state, layer index) adds latency and must be designed for eventual consistency, not immediate consistency.
+
+**SSD1306 OLED**
+- Strictly 1-bit monochrome — no grayscale, no color. Every pixel is on or off.
+- `LV_COLOR_DEPTH=1` is set by the Kyria shield DTS inside ZMK source — cannot be changed here without modifying upstream ZMK. All LVGL rendering must work within this constraint.
+- Fixed 128×64 pixel canvas — layout is pixel-budget design, not responsive.
+
+**ZMK / LVGL**
+- ZMK version: **v0.3** (pinned in `config/west.yml`). Zephyr and LVGL versions are determined by ZMK's own `app/west.yml` — not independently controlled here.
+- All LVGL calls must be made from the display work queue (`zmk_display_work_q()`) — calling LVGL from any other thread is unsafe.
+- **Known incompatibility:** `lv_img_set_src()` with `INDEXED_1BIT` images crashes at `LV_COLOR_DEPTH=1` (hard fault, split disconnects). Canvas pixel writes work. Status: under investigation — adding layout elements incrementally to isolate.
+- Font sizes are compiled-in static C arrays — no runtime font scaling. Adding a new size requires rebuilding via `tools/build_font.sh`.
+
+### Resource estimates
+
+Exact numbers come from the Zephyr memory report in the GitHub Actions build log (see CLAUDE.md → "Build & flash workflow"). Last measured: 2026-07-16, commit `7aac4e0`.
+
+**Flash**
+
+Available region: **792 KB** (1MB nRF52840 total, minus bootloader + NVS partitions)
+
+| | Used | Available | % used |
+|---|---|---|---|
+| Flash | 329 KB | 792 KB | 40.6% |
+| RAM | 65 KB | 256 KB | 25.5% |
+
+Headroom: ~463 KB flash, ~191 KB RAM. Pet sprite sheets will be the next meaningful addition — a multi-frame animation at 60×60px 1-bit runs ~450 bytes per frame. 20 frames ≈ 9 KB. Nowhere near the limit.
+
+Note: the 792 KB flash region (not 1024 KB) reflects partitioning — the bootloader, MBR, and NVS settings storage claim the remainder of the 1MB chip before ZMK's app partition begins.
+
+**RAM**
+
+The largest fixed allocation from our code is the demo canvas buffer: 128 × 64 × 1 byte = **8 KB**. LVGL heap (ZMK default ~8–16 KB), Zephyr stacks, and ZMK core account for the rest. RAM is not a current concern.
+
+**Power consumption**
+
+The SSD1306 OLED dominates power draw — not the MCU.
+
+| State | Estimated draw |
+|---|---|
+| nRF52840 BLE connected, active | ~3–8 mA |
+| SSD1306 OLED on | +8–15 mA |
+| SSD1306 OLED blanked/sleeping | +1–2 mA |
+| Both displays on, typing | ~15–25 mA |
+| Idle, displays off | ~3–5 mA |
+
+With 14500 1000mAh batteries:
+- Display always on: ~50 hours
+- Display blanked on idle (ZMK default): ~150–250 hours
+
+**Key config levers for battery life:**
+- `CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE` — blanks display after inactivity timeout
+- `CONFIG_ZMK_IDLE_SLEEP_TIMEOUT` — deep sleep after longer inactivity (~100µA draw)
+
+These are already present in `config/kyria_rev3.conf`. Tuning their timeout values is the primary tool for extending battery life.
+
 ## Display System
 
 ### How ZMK knows the display
@@ -24,16 +86,24 @@ The display is defined in the Kyria shield's devicetree (DTS) inside the ZMK sou
 ### Custom display module
 
 - Location: `display_module/` (Zephyr module, not a fork of ZMK)
-- Architecture: two LVGL screens — ZMK's stock screen and a custom screen — switched with `lv_scr_load()`
+- Architecture: three LVGL screens — ZMK stock, real layout (CUSTOM), demo canvas (DEMO) — switched with `lv_scr_load()`
 - ZMK's screen is captured at first toggle press (lazy init, avoids boot timing issues)
 - LVGL calls are submitted to `zmk_display_work_q()` for thread safety
+- `LV_LVGL_H_INCLUDE_SIMPLE` must be defined for the custom_display library (via `zephyr_library_compile_definitions`) — lv_font_conv-generated font `.c` files check this symbol to select between `"lvgl.h"` and `"lvgl/lvgl.h"`; ZMK only provides the former
+
+### LVGL rendering — known constraint
+
+- The demo screen (canvas-based) works at `LV_COLOR_DEPTH=1`: pixels are written directly to a raw buffer, bypassing the LVGL image pipeline
+- `lv_img_set_src()` with `INDEXED_1BIT` images at `LV_COLOR_DEPTH=1` causes a hard fault on hardware — root cause not yet isolated. Symptoms: split halves disconnect, a layer gets stuck active, requires power cycle
+- `lv_label` with custom fonts has not yet been tested at `LV_COLOR_DEPTH=1`
+- Strategy: add layout elements back to `build_real_screen()` one at a time (label first, then image) to isolate which LVGL path crashes. Canvas-based rendering is the fallback if `lv_img` is incompatible
 
 ### Display toggle behavior
 
 - ZMK behavior: `&display_toggle` (`zmk,behavior-display-toggle`, 0 binding cells)
-- Bound to: function layer (ADJ_L), right side row 2, slot 1
-- Switches between stock ZMK display and custom display screen
-- Both screens remain live; inactive screen continues updating in background
+- Cycles through: STOCK → CUSTOM → DEMO → STOCK
+- Confirmed working on hardware (2026-07-15)
+- `&demo_cycle` is a no-op in STOCK and CUSTOM; only advances demo images in DEMO state
 
 ### Asset structure
 
@@ -106,8 +176,8 @@ Pet state tracks on the central and syncs to peripheral via BLE split transport 
 | 1 | MAC_L | Default QWERTY — Mac modifier layout (Cmd on home row, Ctrl/Option swapped) |
 | 2 | NUM_L | Number pad |
 | 3 | MOV_L | Navigation / media |
-| 4 | SC_L | Special characters |
-| 5 | ADJ_L | Function keys, BT, OS toggle, display toggle |
+| 4 | SYMB_L | Special characters |
+| 5 | FUNC_L | Function keys, BT, OS toggle, display toggle |
 | 6 | BLNDR_L | Blender shortcuts (placeholder) |
 | 7 | CLPSTD_L | Clip Studio shortcuts (placeholder) |
 
@@ -164,3 +234,7 @@ Pet state tracks on the central and syncs to peripheral via BLE split transport 
 | 2026-07-15 | Pet area 62×62 container, flush right, vertically centered | Container clips content; walking pet that moves left of x=PET_AREA_X is clipped without affecting info column |
 | 2026-07-15 | Fake-bold deferred | BadComic has no bold TTF; 1px shift+OR post-process is the planned approach (build_font.sh TODO stub); deferred until layout is hardware-verified |
 | 2026-07-15 | Phase 2 data callbacks stubbed as commented-out functions | Real layout builds and displays placeholder data first; wiring live ZMK state is a separate step after hardware rendering is confirmed |
+| 2026-07-15 | LV_LVGL_H_INCLUDE_SIMPLE required for custom_display library | lv_font_conv-generated font .c files check this symbol; ZMK defines LV_CONF_INCLUDE_SIMPLE but not this one; added via zephyr_library_compile_definitions in CMakeLists.txt |
+| 2026-07-15 | lv_img with INDEXED_1BIT crashes at LV_COLOR_DEPTH=1 | Hard fault on hardware when build_real_screen() used lv_img_set_src; canvas-based approach (demo screen) works; isolating crash incrementally next session |
+| 2026-07-15 | Real layout stubbed as empty screen until lv_img crash is resolved | Layout code preserved as comments in custom_display.c; three-state toggle confirmed working on hardware with stub |
+| 2026-07-15 | Layer defines are SYMB_L/FUNC_L — not renamed to SC_L/ADJ_L | User's rename was lost in filter-repo working-tree wipe; display names set independently in display_config.h LAYER_NAMES_LIST |

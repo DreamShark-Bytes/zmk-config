@@ -27,7 +27,7 @@ The firmware includes a custom Zephyr module (`display_module/`) that extends th
 | State | What you see |
 |---|---|
 | **STOCK** | ZMK default: Bluetooth status, battery %, layer number |
-| **CUSTOM** | Real layout: info column + virtual pet area |
+| **CUSTOM** | Real layout: info column + virtual pet area (currently a blank screen while lv_img rendering is investigated) |
 | **DEMO** | Developer mockup images — cycle through them with `&demo_cycle` |
 
 `&demo_cycle` is a no-op in STOCK and CUSTOM states. It only advances images when in DEMO state.

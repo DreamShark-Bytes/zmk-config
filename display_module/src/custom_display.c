@@ -144,6 +144,12 @@ static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
     lv_obj_remove_style_all(real_screen);
 
+    // Phase 1 probe: plain lv_label, default font, no images.
+    // If this renders without a hard fault, labels work at LV_COLOR_DEPTH=1.
+    lv_obj_t *test_lbl = lv_label_create(real_screen);
+    lv_label_set_text(test_lbl, "Hello");
+    lv_obj_set_pos(test_lbl, 0, 0);
+
 // Phase 2 layout — uncomment after verifying lv_img and font rendering:
 //
 //     int x = -1;
