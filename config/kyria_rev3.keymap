@@ -140,12 +140,12 @@
         function_layer {
             // ---------------------------------------------------------------------------------------------------------------------------------
             // |       |  F1  |   F2   |   F3   |   F4   |   F5   |                                                 |  F6  |   F7    |  F8  |   F9  | F10  | F11  |
-            // |       |BT_CLR| BT_PRV| BT_NXT |MAC_TOG |        |                                                  | DISP | D_cycle |      |       |      | F12  |
-            // |       |      | INSERT | NUMLCK | PSCRN  |        |      |      |                    |      |       |      |         |      |       |      | CAPS |
+            // |       |BT_CLR| BT_PRV | BT_NXT |MAC_TOG |   Z    |                                                  | DISP | D_cycle |      |       |      | F12  |
+            // |       |      | INSERT | NUMLCK | PSCRN  |       |      |      |                    |      |       |      |         |      |       |      | CAPS |
             //                         |        |        |        |      | CAPS |                    |      |       |      |         |      |
             bindings = <
             &trans &kp F1     &kp F2      &kp F3      &kp F4       &kp F5                                                    &kp F6           &kp F7      &kp F8 &kp F9 &kp F10 &kp F11
-            &trans &bt BT_CLR &bt BT_PRV  &bt BT_NXT  &tog MAC_L   &trans                                                    &display_toggle  &demo_cycle &trans &trans &trans  &kp F12
+            &trans &bt BT_CLR &bt BT_PRV  &bt BT_NXT  &tog MAC_L   &kp Z                                                     &display_toggle  &demo_cycle &trans &trans &trans  &kp F12
             &trans &trans     &kp INSERT  &kp KP_NUM  &kp PSCRN    &trans       &trans &trans               &trans   &trans  &trans           &trans      &trans &trans &trans  &kp CAPS
                                           &trans      &trans       &trans       &trans &kp CAPS             &trans   &trans  &trans           &trans      &trans
             >;
