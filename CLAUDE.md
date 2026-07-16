@@ -40,6 +40,12 @@ Firmware is built by **GitHub Actions** on every push to any branch. There is no
 | Demo mockup source PNGs | `demos/` |
 | Generated asset headers | `resources/` — do not edit manually |
 
+## Commit workflow
+
+Always write commit messages to `scratch.md` — never paste them into chat. See the global CLAUDE.md GitHub commits workflow for message format. Remind the user to push after committing.
+
+Commit message body lines must NOT be wrapped at any fixed column width. The user commits through VSCode which has no column limit. Each bullet point is one unbroken line regardless of length.
+
 ## Architecture guardrails
 
 - **LVGL calls only from the display work queue** — wrap in `k_work_submit_to_queue(zmk_display_work_q(), ...)`. Calling LVGL from any other context is unsafe.

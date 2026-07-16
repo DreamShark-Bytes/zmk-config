@@ -142,9 +142,11 @@ static void build_demo_screen(void) {
 // ---------------------------------------------------------------------------
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
-    lv_obj_remove_style_all(real_screen);
 
     // Phase 1 probe: plain lv_label, default font, no images.
+    // Keeping default LVGL theme (not remove_style_all) so the screen has a
+    // visible background and the label has contrast — unlike the canvas-based
+    // demo screen, widget-based screens need the theme for text to be visible.
     // If this renders without a hard fault, labels work at LV_COLOR_DEPTH=1.
     lv_obj_t *test_lbl = lv_label_create(real_screen);
     lv_label_set_text(test_lbl, "Hello");
