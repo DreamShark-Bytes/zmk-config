@@ -69,7 +69,11 @@
 // NULL entries display as the raw layer number automatically.
 // Max readable length at font size 9 is ~5 characters before CLIP truncates.
 // To add more layers: increase LAYER_NAME_COUNT and extend LAYER_NAMES_LIST.
+//
+// LAYER_IDX_MAC: which layer index activates the Mac OS icon.
+// Layer 0 = Windows (default), layer 1 = Mac. Update if you reorder layers.
 // -----------------------------------------------------------------------------
+#define LAYER_IDX_MAC 1
 #define LAYER_NAME_COUNT 8
 
 #define LAYER_NAMES_LIST \

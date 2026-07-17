@@ -20,6 +20,15 @@
 #include <zephyr/logging/log.h>
 #include <zmk/behavior.h>
 #include <zmk/display.h>
+#include <zmk/event_manager.h>
+#include <zmk/events/battery_state_changed.h>
+#include <zmk/battery.h>
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#include <zmk/events/layer_state_changed.h>
+#include <zmk/keymap.h>
+#include <zmk/events/ble_active_profile_changed.h>
+#include <zmk/ble.h>
+#endif
 #include <lvgl.h>
 
 #include "display_config.h"
@@ -266,40 +275,82 @@ static void set_display_state(display_state_t state) {
 
 // ---------------------------------------------------------------------------
 // DATA CALLBACKS — Phase 2
-// Uncomment and implement to wire live ZMK state to the layout widgets.
+// Live ZMK state → layout widgets via event subscriptions.
+// All LVGL updates run on the display work queue.
 // ---------------------------------------------------------------------------
 
-// void custom_display_set_layer(uint8_t layer_idx) {
-//     if (!initialized) return;
-//     char num_buf[4];
-//     const char *name = (layer_idx < LAYER_NAME_COUNT) ? layer_names[layer_idx] : NULL;
-//     if (name) {
-//         lv_label_set_text(w_layer_name, name);
-//     } else {
-//         snprintf(num_buf, sizeof(num_buf), "%d", layer_idx);
-//         lv_label_set_text(w_layer_name, num_buf);
-//     }
-// }
+// --- Battery: both halves report their own local battery ---
 
-// void custom_display_set_battery(uint8_t pct, bool charging) {
-//     if (!initialized) return;
-//     char buf[6];
-//     snprintf(buf, sizeof(buf), "%d%%", pct);
-//     lv_label_set_text(w_battery_pct, buf);
-//     lv_img_set_src(w_battery_icon, charging ? &icon_lightning : &icon_battery);
-// }
+static uint8_t pending_battery_pct = 0;
 
-// void custom_display_set_bt(uint8_t profile, bool connected) {
-//     if (!initialized) return;
-//     char buf[2] = { '1' + profile, '\0' };
-//     lv_label_set_text(w_bt_profile, buf);
-//     lv_img_set_src(w_bt_conn_icon, connected ? &icon_check : &icon_x);
-// }
+static void do_update_battery(struct k_work *work) {
+    if (!initialized || !w_battery_pct) return;
+    char buf[5];
+    snprintf(buf, sizeof(buf), "%d%%", pending_battery_pct);
+    lv_label_set_text(w_battery_pct, buf);
+}
+K_WORK_DEFINE(update_battery_work, do_update_battery);
 
-// void custom_display_set_split_connected(bool connected) {
-//     if (!initialized) return;
-//     lv_img_set_src(w_link_icon, connected ? &icon_link : &icon_link_broken);
-// }
+static int battery_event_cb(const zmk_event_t *eh) {
+    pending_battery_pct = zmk_battery_state_of_charge();
+    k_work_submit_to_queue(zmk_display_work_q(), &update_battery_work);
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(display_battery_listener, battery_event_cb);
+ZMK_SUBSCRIPTION(display_battery_listener, zmk_battery_state_changed);
+
+// --- Layer name + OS icon, BT profile: central only ---
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+static uint8_t pending_layer      = 0;
+static bool    pending_mac_active = false;
+
+static void do_update_layer(struct k_work *work) {
+    if (!initialized) return;
+    lv_img_set_src(w_os_icon, pending_mac_active ? &icon_os_mac : &icon_os_windows);
+    uint8_t layer = pending_layer;
+    const char *name = (layer < LAYER_NAME_COUNT) ? layer_names[layer] : NULL;
+    if (name) {
+        lv_label_set_text(w_layer_name, name);
+    } else {
+        char buf[4];
+        snprintf(buf, sizeof(buf), "%d", layer);
+        lv_label_set_text(w_layer_name, buf);
+    }
+}
+K_WORK_DEFINE(update_layer_work, do_update_layer);
+
+static int layer_event_cb(const zmk_event_t *eh) {
+    pending_layer      = zmk_keymap_highest_layer_active();
+    pending_mac_active = zmk_keymap_layer_state_is_active(LAYER_IDX_MAC);
+    k_work_submit_to_queue(zmk_display_work_q(), &update_layer_work);
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(display_layer_listener, layer_event_cb);
+ZMK_SUBSCRIPTION(display_layer_listener, zmk_layer_state_changed);
+
+static uint8_t pending_bt_profile   = 0;
+static bool    pending_bt_connected = false;
+
+static void do_update_bt(struct k_work *work) {
+    if (!initialized) return;
+    char buf[2] = { '1' + pending_bt_profile, '\0' };
+    lv_label_set_text(w_bt_profile, buf);
+    lv_img_set_src(w_bt_conn_icon, pending_bt_connected ? &icon_check : &icon_x);
+}
+K_WORK_DEFINE(update_bt_work, do_update_bt);
+
+static int ble_event_cb(const zmk_event_t *eh) {
+    pending_bt_profile   = zmk_ble_active_profile_index();
+    pending_bt_connected = zmk_ble_active_profile_is_connected();
+    k_work_submit_to_queue(zmk_display_work_q(), &update_bt_work);
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(display_ble_listener, ble_event_cb);
+ZMK_SUBSCRIPTION(display_ble_listener, zmk_ble_active_profile_changed);
+
+#endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
 // ---------------------------------------------------------------------------
 // display_toggle behavior
