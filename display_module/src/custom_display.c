@@ -23,11 +23,14 @@
 #include <zmk/event_manager.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/battery.h>
+#include <zmk/events/usb_conn_state_changed.h>
+#include <zmk/usb.h>
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/keymap.h>
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/ble.h>
+#include <zmk/events/split_peripheral_status_changed.h>
 #endif
 #include <lvgl.h>
 
@@ -299,6 +302,22 @@ static int battery_event_cb(const zmk_event_t *eh) {
 ZMK_LISTENER(display_battery_listener, battery_event_cb);
 ZMK_SUBSCRIPTION(display_battery_listener, zmk_battery_state_changed);
 
+// --- USB charging icon: both halves ---
+
+static void do_update_charging(struct k_work *work) {
+    if (!initialized || !w_battery_icon) return;
+    bool charging = zmk_usb_get_conn_state() != ZMK_USB_CONN_NONE;
+    lv_img_set_src(w_battery_icon, charging ? &icon_lightning : &icon_battery);
+}
+K_WORK_DEFINE(update_charging_work, do_update_charging);
+
+static int usb_conn_event_cb(const zmk_event_t *eh) {
+    k_work_submit_to_queue(zmk_display_work_q(), &update_charging_work);
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(display_usb_listener, usb_conn_event_cb);
+ZMK_SUBSCRIPTION(display_usb_listener, zmk_usb_conn_state_changed);
+
 // --- Layer name + OS icon, BT profile: central only ---
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
@@ -349,6 +368,28 @@ static int ble_event_cb(const zmk_event_t *eh) {
 }
 ZMK_LISTENER(display_ble_listener, ble_event_cb);
 ZMK_SUBSCRIPTION(display_ble_listener, zmk_ble_active_profile_changed);
+
+// --- Split peripheral connection (link icon): central only ---
+
+static bool pending_split_connected = false;
+
+static void do_update_split(struct k_work *work) {
+    if (!initialized) return;
+    lv_img_set_src(w_link_icon, pending_split_connected ? &icon_link : &icon_link_broken);
+}
+K_WORK_DEFINE(update_split_work, do_update_split);
+
+static int split_status_event_cb(const zmk_event_t *eh) {
+    const struct zmk_split_peripheral_status_changed *ev =
+        as_zmk_split_peripheral_status_changed(eh);
+    if (ev) {
+        pending_split_connected = ev->connected;
+        k_work_submit_to_queue(zmk_display_work_q(), &update_split_work);
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(display_split_listener, split_status_event_cb);
+ZMK_SUBSCRIPTION(display_split_listener, zmk_split_peripheral_status_changed);
 
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
