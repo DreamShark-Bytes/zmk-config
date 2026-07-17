@@ -212,6 +212,36 @@ static void ensure_initialized(void) {
 }
 
 // ---------------------------------------------------------------------------
+// Peripheral auto-init
+// Behaviors run on the central only, so the peripheral's ensure_initialized()
+// is never triggered by a key press. Instead we auto-init at startup via two
+// chained work items: a delayable on the system queue (guarantees ZMK's
+// display thread is running before we touch LVGL), then one on the display
+// work queue (ensures LVGL calls are on the correct thread).
+// ---------------------------------------------------------------------------
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+static void do_peripheral_display_init(struct k_work *work) {
+    ensure_initialized();
+    lv_scr_load(real_screen);
+    current_state = DISPLAY_STATE_CUSTOM;
+}
+K_WORK_DEFINE(peripheral_display_work, do_peripheral_display_init);
+
+static void submit_peripheral_display_init(struct k_work *work) {
+    k_work_submit_to_queue(zmk_display_work_q(), &peripheral_display_work);
+}
+K_WORK_DELAYABLE_DEFINE(peripheral_display_delayed, submit_peripheral_display_init);
+
+static int peripheral_display_sys_init(const struct device *dev) {
+    k_work_schedule(&peripheral_display_delayed, K_MSEC(500));
+    return 0;
+}
+SYS_INIT(peripheral_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+
+#endif /* !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
+
+// ---------------------------------------------------------------------------
 // State transitions
 // ---------------------------------------------------------------------------
 static void set_display_state(display_state_t state) {
