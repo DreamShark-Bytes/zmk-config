@@ -117,6 +117,10 @@ The font variable names in `display_config.h` (`FONT_BATTERY_NUM`, `FONT_LAYER_L
 
 > **Bold:** BadComic has no bold TTF variant. A fake-bold post-processor (1px right-shift + OR on the bitmap) is planned. See `build_font.sh` for the TODO stub.
 
+### Changing font sizes
+
+Adding or changing a size requires updates to three files (`build_font.sh`, `CMakeLists.txt`, `display_config.h`). See **DESIGN.md → Font pipeline** for the step-by-step workflow.
+
 ### Adding a new UI icon
 
 UI icons appear as standalone image objects (BT icon, battery icon, link icon, etc.).

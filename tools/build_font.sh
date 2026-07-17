@@ -11,6 +11,11 @@
 #
 # Usage:
 #   bash tools/build_font.sh
+#
+# After adding a NEW size to this script, also update two more files:
+#   display_module/CMakeLists.txt       — add zephyr_library_sources(.../font_badcomic_N.c)
+#   display_module/src/display_config.h — add extern declaration + update FONT_* define
+# See DESIGN.md → "Font pipeline" for the full workflow.
 
 set -euo pipefail
 
@@ -32,26 +37,12 @@ mkdir -p "$OUT"
 # (e.g. for a future scrolling notification string). See tools/png_to_icon_font.py.
 # ---------------------------------------------------------------------------
 
-echo "Building font_badcomic_8..."
+echo "Building font_badcomic_10..."
 lv_font_conv \
     --font "$FONT_SRC" --range "0x20-0x7F" \
-    --size 8 --bpp 1 --format lvgl \
-    --lv-font-name font_badcomic_8 \
-    -o "$OUT/font_badcomic_8.c"
-
-echo "Building font_badcomic_9..."
-lv_font_conv \
-    --font "$FONT_SRC" --range "0x20-0x7F" \
-    --size 9 --bpp 1 --format lvgl \
-    --lv-font-name font_badcomic_9 \
-    -o "$OUT/font_badcomic_9.c"
-
-echo "Building font_badcomic_11..."
-lv_font_conv \
-    --font "$FONT_SRC" --range "0x20-0x7F" \
-    --size 11 --bpp 1 --format lvgl \
-    --lv-font-name font_badcomic_11 \
-    -o "$OUT/font_badcomic_11.c"
+    --size 10 --bpp 1 --format lvgl \
+    --lv-font-name font_badcomic_10 \
+    -o "$OUT/font_badcomic_10.c"
 
 echo "Building font_badcomic_12..."
 lv_font_conv \
@@ -59,6 +50,21 @@ lv_font_conv \
     --size 12 --bpp 1 --format lvgl \
     --lv-font-name font_badcomic_12 \
     -o "$OUT/font_badcomic_12.c"
+
+echo "Building font_badcomic_14..."
+lv_font_conv \
+    --font "$FONT_SRC" --range "0x20-0x7F" \
+    --size 14 --bpp 1 --format lvgl \
+    --lv-font-name font_badcomic_14 \
+    -o "$OUT/font_badcomic_14.c"
+
+echo "Building font_badcomic_16..."
+lv_font_conv \
+    --font "$FONT_SRC" --range "0x20-0x7F" \
+    --size 16 --bpp 1 --format lvgl \
+    --lv-font-name font_badcomic_16 \
+    -o "$OUT/font_badcomic_16.c"
+
 
 # ---------------------------------------------------------------------------
 # FAKE BOLD (1px right-shift + OR bitmaps)

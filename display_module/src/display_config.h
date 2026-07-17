@@ -23,7 +23,7 @@
 // extends 1px off-screen (bleed pixel disappears at the display boundary).
 // The info column occupies x=0 to (PET_AREA_X - 1).
 // -----------------------------------------------------------------------------
-#define PET_AREA_X       66   // left edge of pet container
+#define PET_AREA_X       67   // left edge of pet container
 #define PET_AREA_WIDTH   62   // total width including 1px bleed each side
 #define PET_AREA_HEIGHT  62   // total height including 1px bleed each side
 #define PET_AREA_Y        1   // top y: (DISPLAY_HEIGHT - PET_AREA_HEIGHT) / 2
@@ -90,19 +90,19 @@
 // -----------------------------------------------------------------------------
 // FONT SELECTIONS
 // Swap a font by changing the name and running tools/build_font.sh.
-// Available sizes: font_badcomic_8, font_badcomic_9,
-//                  font_badcomic_11, font_badcomic_12
+// Available sizes: font_badcomic_8, font_badcomic_9, font_badcomic_10,
+//                  font_badcomic_11, font_badcomic_12, font_badcomic_14, font_badcomic_16
 // To use your own font: add its .c to resources/fonts/generated/ and
 // list it in display_module/CMakeLists.txt.
 // -----------------------------------------------------------------------------
-extern const lv_font_t font_badcomic_8;
-extern const lv_font_t font_badcomic_9;
-extern const lv_font_t font_badcomic_11;
+extern const lv_font_t font_badcomic_10;
 extern const lv_font_t font_badcomic_12;
+extern const lv_font_t font_badcomic_14;
+extern const lv_font_t font_badcomic_16;
 
-#define FONT_LAYER_COLON  (&font_badcomic_8)    // ":" between "L" and name
-#define FONT_LAYER_NAME   (&font_badcomic_9)    // layer name or number
-#define FONT_STATUS_TEXT  (&font_badcomic_11)   // bottom status string
-#define FONT_BATTERY_NUM  (&font_badcomic_12)   // battery percentage digits
-#define FONT_LAYER_L      (&font_badcomic_12)   // "L" label
-#define FONT_BT_PROFILE   (&font_badcomic_12)   // BT profile number
+#define FONT_LAYER_COLON  (&font_badcomic_10)    // ":" between "L" and name
+#define FONT_LAYER_NAME   (&font_badcomic_12)    // layer name or number
+#define FONT_STATUS_TEXT  (&font_badcomic_14)   // bottom status string
+#define FONT_BATTERY_NUM  (&font_badcomic_16)   // battery percentage digits
+#define FONT_LAYER_L      (&font_badcomic_16)   // "L" label
+#define FONT_BT_PROFILE   (&font_badcomic_16)   // BT profile number

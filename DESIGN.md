@@ -29,7 +29,7 @@ Settled decisions and stable architecture. Updated only when a decision is final
 **ZMK / LVGL**
 - ZMK version: **v0.3** (pinned in `config/west.yml`). Zephyr and LVGL versions are determined by ZMK's own `app/west.yml` — not independently controlled here.
 - All LVGL calls must be made from the display work queue (`zmk_display_work_q()`) — calling LVGL from any other thread is unsafe.
-- **Known incompatibility:** `lv_img_set_src()` with `INDEXED_1BIT` images crashes at `LV_COLOR_DEPTH=1` (hard fault, split disconnects). Canvas pixel writes work. Status: under investigation — adding layout elements incrementally to isolate.
+- `lv_img_set_src()` with `INDEXED_1BIT` images is safe at `LV_COLOR_DEPTH=1`. The earlier hard fault was caused by undersized LVGL heap and display thread stack, not an lv_img incompatibility. Do not reduce `CONFIG_LV_Z_MEM_POOL_SIZE` (16384) or `CONFIG_ZMK_DISPLAY_DEDICATED_THREAD_STACK_SIZE` (4096).
 - Font sizes are compiled-in static C arrays — no runtime font scaling. Adding a new size requires rebuilding via `tools/build_font.sh`.
 
 ### Resource estimates
@@ -91,12 +91,12 @@ The display is defined in the Kyria shield's devicetree (DTS) inside the ZMK sou
 - LVGL calls are submitted to `zmk_display_work_q()` for thread safety
 - `LV_LVGL_H_INCLUDE_SIMPLE` must be defined for the custom_display library (via `zephyr_library_compile_definitions`) — lv_font_conv-generated font `.c` files check this symbol to select between `"lvgl.h"` and `"lvgl/lvgl.h"`; ZMK only provides the former
 
-### LVGL rendering — known constraint
+### LVGL rendering — confirmed working
 
-- The demo screen (canvas-based) works at `LV_COLOR_DEPTH=1`: pixels are written directly to a raw buffer, bypassing the LVGL image pipeline
-- `lv_img_set_src()` with `INDEXED_1BIT` images at `LV_COLOR_DEPTH=1` causes a hard fault on hardware — root cause not yet isolated. Symptoms: split halves disconnect, a layer gets stuck active, requires power cycle
-- `lv_label` with custom fonts has not yet been tested at `LV_COLOR_DEPTH=1`
-- Strategy: add layout elements back to `build_real_screen()` one at a time (label first, then image) to isolate which LVGL path crashes. Canvas-based rendering is the fallback if `lv_img` is incompatible
+- `lv_label` with custom lv_font_conv fonts: confirmed working at `LV_COLOR_DEPTH=1`
+- `lv_img_set_src()` with `INDEXED_1BIT` images: confirmed working at `LV_COLOR_DEPTH=1` once heap and stack sizes are adequate (see above)
+- Canvas pixel writes (demo screen): working — pixels written directly to a raw buffer, no LVGL image pipeline involved
+- All three paths are in production use in the current firmware
 
 ### Display toggle behavior
 
@@ -119,10 +119,20 @@ The display is defined in the Kyria shield's devicetree (DTS) inside the ZMK sou
 ### Font pipeline
 
 - Text font: **BadComic-Regular.ttf** (SIL OFL 1.1 — may be committed to repo with attribution)
-- Sizes built: 8px (layer colon), 9px (layer name), 11px (status string + inline icons), 12px (battery, BT profile, layer "L")
+- Sizes currently built: 10, 12, 14, 16 (plus legacy 8, 9, 11 kept for reference)
 - Build command: `bash tools/build_font.sh` — rebuilds all sizes; re-run after adding icons or changing sizes
-- Inline status icons: `tools/png_to_icon_font.py` converts a PNG to a single-glyph TTF at a Unicode private-use code point (U+E001+), then `lv_font_conv` merges it with BadComic into one font `.c` file; the icon appears inline in label strings using its UTF-8 escape sequence
-- Current icon code points: `U+E001` = `icon_currency` (keycount / status prefix)
+
+**Adding a new font size — all three files must be updated:**
+
+| Step | File | What to do |
+|---|---|---|
+| 1 | `tools/build_font.sh` | Add a new `lv_font_conv --size N` block and output path |
+| 2 | `display_module/CMakeLists.txt` | Add `zephyr_library_sources(../resources/fonts/generated/font_badcomic_N.c)` |
+| 3 | `display_module/src/display_config.h` | Add `extern const lv_font_t font_badcomic_N;` and update the `#define FONT_*` that should use it |
+
+Run `bash tools/build_font.sh` from the project root after step 1, then push to trigger a build.
+- Status icons (currency, stat indicators) are `lv_img` widgets, not inline font glyphs — simpler and avoids merging per-size font builds
+- `tools/png_to_icon_font.py` is available if inline glyph icons are ever needed (e.g. scrolling notification strings), but is not currently used
 - Fake bold: deferred — `build_font.sh` has a TODO stub; when implemented, `tools/apply_fake_bold.py` will post-process glyph bitmaps (1px right shift + OR) at build time, zero runtime cost
 
 ### Icon asset design
@@ -135,7 +145,7 @@ The display is defined in the Kyria shield's devicetree (DTS) inside the ZMK sou
 ### Display configuration
 
 - All user-tunable constants in `display_module/src/display_config.h`:
-  - Layout dimensions and split point (PET_AREA_X = 66)
+  - Layout dimensions and split point (PET_AREA_X = 67)
   - Row y-positions and baseline alignment offsets (tunable after hardware test)
   - Font selections (swap by changing macro, no C code changes)
   - Layer names array (via `LAYER_NAMES_LIST` macro — avoids multiple-definition issues across TUs)
@@ -159,12 +169,14 @@ The display is defined in the Kyria shield's devicetree (DTS) inside the ZMK sou
 
 ### Display split (decided)
 
-| Half | Display content |
-|---|---|
-| Left (central) | Stock ZMK: BT status, battery %, layer name |
-| Right (peripheral) | Custom: virtual pet |
+| Half | Role | Display content |
+|---|---|---|
+| Left (central) | BLE central, host-connected | Custom layout: split link icon (static), BT profile + connected icon, battery %, OS icon, layer name, pet stat row |
+| Right (peripheral) | BLE peripheral, split-connected | Custom layout: split link icon (live — `zmk_split_peripheral_status_changed`), battery % |
 
-Pet state tracks on the central and syncs to peripheral via BLE split transport (to be designed).
+Split link icon is live on the right half only. ZMK exposes no public event for the central to detect peripheral connection status — the left link icon is static.
+
+Pet state will track on the central and sync to the peripheral via BLE split transport (not yet designed).
 
 ## Keymap
 
@@ -229,12 +241,14 @@ Pet state tracks on the central and syncs to peripheral via BLE split transport 
 | 2026-07-15 | display_config.h as single user-config file | All layout, font, and layer-name constants in one place; user never needs to touch C display code for routine customization |
 | 2026-07-15 | LAYER_NAMES_LIST as a macro, not a static array in the header | Avoids multiple-definition linker errors when header is included from multiple translation units |
 | 2026-07-15 | BadComic-Regular (OFL 1.1) as display font | OFL permits committing TTF to public repo with attribution; Hawtpixel Jumping (previous candidate) is donationware and cannot be distributed |
-| 2026-07-15 | Inline status icons via merged lv_font_conv font | png_to_icon_font.py converts PNG → single-glyph TTF at U+E001+; lv_font_conv merges with BadComic; icon appears inline in label strings and scrolls with marquee |
+| 2026-07-15 | Status icons as lv_img widgets, not inline font glyphs | Simpler than merging a per-glyph TTF into each font size; png_to_icon_font.py remains available for future scrolling-string use cases |
 | 2026-07-15 | 1px bleed baked into all icon/pet assets | Eliminates odd pixel artifacts at screen edges; placement at x/y = -1 bleeds the pixel off-screen naturally; LVGL clips automatically |
 | 2026-07-15 | Pet area 62×62 container, flush right, vertically centered | Container clips content; walking pet that moves left of x=PET_AREA_X is clipped without affecting info column |
 | 2026-07-15 | Fake-bold deferred | BadComic has no bold TTF; 1px shift+OR post-process is the planned approach (build_font.sh TODO stub); deferred until layout is hardware-verified |
-| 2026-07-15 | Phase 2 data callbacks stubbed as commented-out functions | Real layout builds and displays placeholder data first; wiring live ZMK state is a separate step after hardware rendering is confirmed |
 | 2026-07-15 | LV_LVGL_H_INCLUDE_SIMPLE required for custom_display library | lv_font_conv-generated font .c files check this symbol; ZMK defines LV_CONF_INCLUDE_SIMPLE but not this one; added via zephyr_library_compile_definitions in CMakeLists.txt |
-| 2026-07-15 | lv_img with INDEXED_1BIT crashes at LV_COLOR_DEPTH=1 | Hard fault on hardware when build_real_screen() used lv_img_set_src; canvas-based approach (demo screen) works; isolating crash incrementally next session |
-| 2026-07-15 | Real layout stubbed as empty screen until lv_img crash is resolved | Layout code preserved as comments in custom_display.c; three-state toggle confirmed working on hardware with stub |
 | 2026-07-15 | Layer defines are SYMB_L/FUNC_L — not renamed to SC_L/ADJ_L | User's rename was lost in filter-repo working-tree wipe; display names set independently in display_config.h LAYER_NAMES_LIST |
+| 2026-07-16 | Hard fault root cause: undersized LVGL heap and display thread stack | CONFIG_LV_Z_MEM_POOL_SIZE=16384 and CONFIG_ZMK_DISPLAY_DEDICATED_THREAD_STACK_SIZE=4096 required; lv_img with INDEXED_1BIT is safe once these are adequate |
+| 2026-07-17 | All Phase 2 live data wired on both halves | Battery %, layer name, OS icon, BT profile/connected on central; battery % on peripheral; character counter live on central via keycode events |
+| 2026-07-17 | Split link icon live on peripheral via zmk_split_peripheral_status_changed | Event fires on peripheral only with ev->connected; ZMK exposes no equivalent public event on the central — left link icon is static |
+| 2026-07-17 | PET_AREA_X corrected 66→67 | Pet image right border (column 61) was rendering at screen x=127 (on-screen); shifting container 1px right puts it at x=128 (clipped off-screen) |
+| 2026-07-17 | Font sizes updated to 10, 12, 14, 16 | Larger cap heights for better correspondence with mockup work in Clip Studio; adding a new size requires build_font.sh + CMakeLists.txt + display_config.h |

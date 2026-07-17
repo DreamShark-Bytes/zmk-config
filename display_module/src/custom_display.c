@@ -157,7 +157,8 @@ static void build_real_screen(void) {
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     // Right half — split connection + battery until pet is implemented.
-    w_link_icon = make_img(real_screen, &icon_link, -1, ROW_TOP_Y);
+    // Start disconnected; zmk_split_peripheral_status_changed fires when link comes up.
+    w_link_icon = make_img(real_screen, &icon_link_broken, -1, ROW_TOP_Y);
     w_battery_icon = make_img(real_screen, &icon_battery, -1, ROW_BATTERY_Y);
     w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%",
                                -1 + 13 + ICON_TEXT_GAP, ROW_BATTERY_Y);
@@ -253,6 +254,29 @@ static int peripheral_display_sys_init(const struct device *dev) {
     return 0;
 }
 SYS_INIT(peripheral_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+
+// --- Split link icon: live connection status ---
+#include <zmk/events/split_peripheral_status_changed.h>
+
+static bool pending_split_connected = false;
+
+static void do_update_split_link(struct k_work *work) {
+    if (!initialized || !w_link_icon) return;
+    lv_img_set_src(w_link_icon, pending_split_connected ? &icon_link : &icon_link_broken);
+}
+K_WORK_DEFINE(update_split_link_work, do_update_split_link);
+
+static int split_status_event_cb(const zmk_event_t *eh) {
+    const struct zmk_split_peripheral_status_changed *ev =
+        as_zmk_split_peripheral_status_changed(eh);
+    if (ev) {
+        pending_split_connected = ev->connected;
+        k_work_submit_to_queue(zmk_display_work_q(), &update_split_link_work);
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(display_split_listener, split_status_event_cb);
+ZMK_SUBSCRIPTION(display_split_listener, zmk_split_peripheral_status_changed);
 
 #endif /* !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
