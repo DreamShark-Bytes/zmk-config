@@ -323,7 +323,7 @@ K_WORK_DEFINE(update_layer_work, do_update_layer);
 
 static int layer_event_cb(const zmk_event_t *eh) {
     pending_layer      = zmk_keymap_highest_layer_active();
-    pending_mac_active = zmk_keymap_layer_state_is_active(LAYER_IDX_MAC);
+    pending_mac_active = zmk_keymap_layer_active(LAYER_IDX_MAC);
     k_work_submit_to_queue(zmk_display_work_q(), &update_layer_work);
     return ZMK_EV_EVENT_BUBBLE;
 }
