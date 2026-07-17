@@ -30,7 +30,6 @@
 #include <zmk/keymap.h>
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/ble.h>
-#include <zmk/events/split_peripheral_status_changed.h>
 #endif
 #include <lvgl.h>
 
@@ -203,6 +202,7 @@ static void build_real_screen(void) {
     // Pet container — virtual_pet owns all rendering inside it.
     lv_obj_t *pet_container = lv_obj_create(real_screen);
     lv_obj_remove_style_all(pet_container);
+    lv_obj_set_scrollbar_mode(pet_container, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
     lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
 
@@ -238,9 +238,6 @@ static void ensure_initialized(void) {
 
 static void do_peripheral_display_init(struct k_work *work) {
     ensure_initialized();
-    // Blank ZMK's stock screen before switching to prevent content flash.
-    // Peripheral never returns to STOCK state so this is safe to clear.
-    lv_obj_clean(zmk_screen);
     lv_scr_load(real_screen);
     current_state = DISPLAY_STATE_CUSTOM;
 }
@@ -371,28 +368,6 @@ static int ble_event_cb(const zmk_event_t *eh) {
 }
 ZMK_LISTENER(display_ble_listener, ble_event_cb);
 ZMK_SUBSCRIPTION(display_ble_listener, zmk_ble_active_profile_changed);
-
-// --- Split peripheral connection (link icon): central only ---
-
-static bool pending_split_connected = false;
-
-static void do_update_split(struct k_work *work) {
-    if (!initialized) return;
-    lv_img_set_src(w_link_icon, pending_split_connected ? &icon_link : &icon_link_broken);
-}
-K_WORK_DEFINE(update_split_work, do_update_split);
-
-static int split_status_event_cb(const zmk_event_t *eh) {
-    const struct zmk_split_peripheral_status_changed *ev =
-        as_zmk_split_peripheral_status_changed(eh);
-    if (ev) {
-        pending_split_connected = ev->connected;
-        k_work_submit_to_queue(zmk_display_work_q(), &update_split_work);
-    }
-    return ZMK_EV_EVENT_BUBBLE;
-}
-ZMK_LISTENER(display_split_listener, split_status_event_cb);
-ZMK_SUBSCRIPTION(display_split_listener, zmk_split_peripheral_status_changed);
 
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 

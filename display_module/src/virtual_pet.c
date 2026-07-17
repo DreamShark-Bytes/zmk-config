@@ -64,6 +64,9 @@ static void render_status(void) {
                          (unsigned)((n % 1000000) / 100000));
             } else if (n >= 10000) {
                 snprintf(buf, sizeof(buf), "%uk", (unsigned)(n / 1000));
+            } else if (n >= 1000) {
+                snprintf(buf, sizeof(buf), "%u,%03u",
+                         (unsigned)(n / 1000), (unsigned)(n % 1000));
             } else {
                 snprintf(buf, sizeof(buf), "%u", (unsigned)n);
             }
