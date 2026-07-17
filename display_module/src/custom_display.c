@@ -31,7 +31,8 @@
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/ble.h>
 #include <zmk/events/split_peripheral_status_changed.h>
-#include <zmk/split/bluetooth/central.h>
+// No public header for this — forward-declare directly (same pattern ZMK's widgets use internally)
+extern bool zmk_split_bt_peripheral_is_connected(uint8_t index);
 #endif
 #include <lvgl.h>
 
