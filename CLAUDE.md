@@ -35,7 +35,7 @@ Firmware is built by **GitHub Actions** on every push to any branch. There is no
 | Demo advance behavior | `display_module/src/demo_cycle.c` |
 | Keymap and layer definitions | `config/kyria_rev3.keymap` |
 | Kconfig options | `config/kyria_rev3.conf` |
-| Image/sprite conversion | `tools/convert_image.py` |
+| Image/sprite conversion | `tools/convert_image.py --invert` (always use --invert — display bit polarity is inverted) |
 | Font build pipeline | `tools/build_font.sh` + `tools/png_to_icon_font.py` |
 | Demo mockup source PNGs | `demos/` |
 | Generated asset headers | `resources/` — do not edit manually |

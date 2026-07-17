@@ -143,11 +143,12 @@ static void build_demo_screen(void) {
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
 
-    // Phase 1 probe: lv_label confirmed working. Now testing lv_img with one
-    // INDEXED_1BIT icon. If this hard faults, lv_img is incompatible with
-    // LV_COLOR_DEPTH=1 and all icons must use canvas-based rendering instead.
+    // Phase 1 probe: lv_label + lv_img confirmed working. Now testing custom
+    // font (BadComic 12px) via lv_obj_set_style_text_font. If this hard faults,
+    // the font .c files have a compilation or data issue at LV_COLOR_DEPTH=1.
     lv_obj_t *test_lbl = lv_label_create(real_screen);
     lv_label_set_text(test_lbl, "Hello");
+    lv_obj_set_style_text_font(test_lbl, FONT_LAYER_L, 0);
     lv_obj_set_pos(test_lbl, 0, 0);
 
     lv_obj_t *test_img = lv_img_create(real_screen);
