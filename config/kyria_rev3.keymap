@@ -139,15 +139,15 @@
         
         function_layer {
             // ---------------------------------------------------------------------------------------------------------------------------------
-            // |       |  F1  |   F2   |   F3   |   F4   |   F5   |                                                 |  F6  |   F7    |  F8  |   F9  | F10  | F11  |
-            // |       |BT_CLR| BT_PRV | BT_NXT |MAC_TOG |   Z    |                                                 | DISP | D_cycle |      |       |      | F12  |
-            // |       |      | INSERT | NUMLCK | PSCRN  |   Z    |      |      |                    |      |       |   Z  |         |      |       |      | CAPS |
-            //                         |        |        |        |      | CAPS |                    |      |       |      |         |      |
+            // |       |  F1  |   F2   |   F3   |    F4   |   F5   |                                                 |  F6  |   F7    |  F8  |   F9  | F10  | F11  |
+            // |       |BT_CLR| BT_PRV | BT_NXT | MAC_TOG |   Z    |                                                 |  Z   |         |      |       |      | F12  |
+            // |       |INSERT| NUMLCK | PSCRN  | D_cycle |  DISP  |      |      |                    |      |       | DISP | D_cycle |      |       |      | CAPS |
+            //                         |        |         |        |      | CAPS |                    |      |       |      |         |      |
             bindings = <
-            &trans &kp F1     &kp F2      &kp F3      &kp F4       &kp F5                                                    &kp F6           &kp F7      &kp F8 &kp F9 &kp F10 &kp F11
-            &trans &bt BT_CLR &bt BT_PRV  &bt BT_NXT  &tog MAC_L   &trans                                                    &display_toggle  &cycle &trans &trans &trans  &kp F12
-            &trans &trans     &kp INSERT  &kp KP_NUM  &kp PSCRN    &kp Z        &trans &trans               &trans   &trans  &kp Z            &trans      &trans &trans &trans  &kp CAPS
-                                          &trans      &trans       &trans       &trans &kp CAPS             &trans   &trans  &trans           &trans      &trans
+            &trans &kp F1     &kp F2      &kp F3      &kp F4      &kp F5                                                       &kp F6           &kp F7      &kp F8 &kp F9 &kp F10  &kp F11
+            &trans &bt BT_CLR &bt BT_PRV  &bt BT_NXT  &tog MAC_L  &kp Z                                                        &kp Z            &trans      &trans &trans &trans   &kp F12
+            &trans &kp INSERT &kp KP_NUM  &kp PSCRN   &cycle      &display_toggle &trans &trans               &trans   &trans  &display_toggle  &cycle      &trans &trans &trans   &kp CAPS 
+                                          &trans      &trans      &trans          &trans &kp CAPS             &trans   &trans  &trans           &trans      &trans
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;

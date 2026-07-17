@@ -25,6 +25,7 @@
 #include <zmk/battery.h>
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/usb.h>
+#include <zmk/events/split_peripheral_status_changed.h>
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/keymap.h>
@@ -161,28 +162,28 @@ static void build_real_screen(void) {
     w_link_icon = make_img(real_screen, &icon_link_broken, -1, ROW_TOP_Y);
     w_battery_icon = make_img(real_screen, &icon_battery, -1, ROW_BATTERY_Y);
     w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%",
-                               -1 + 13 + ICON_TEXT_GAP, ROW_BATTERY_Y);
+                               -1 + 13 + ICON_TEXT_GAP, ROW_BATTERY_Y + LARGE_FONT_Y_OFFSET);
     return;
 #endif
 
     int x = -1;
-    w_link_icon = make_img(real_screen, &icon_link, x, ROW_TOP_Y);
+    w_link_icon = make_img(real_screen, &icon_link_broken, x, ROW_TOP_Y);
     x = -1 + 13 + ICON_TEXT_GAP;
     w_bt_icon = make_img(real_screen, &icon_bt, x, ROW_TOP_Y);
     x += 13 + ICON_TEXT_GAP;
-    w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y);
+    w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y + LARGE_FONT_Y_OFFSET);
     x += 9 + ICON_TEXT_GAP;
     w_bt_conn_icon = make_img(real_screen, &icon_check, x, ROW_TOP_Y);
 
     x = -1;
     w_battery_icon = make_img(real_screen, &icon_battery, x, ROW_BATTERY_Y);
     x = -1 + 13 + ICON_TEXT_GAP;
-    w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%", x, ROW_BATTERY_Y);
+    w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%", x, ROW_BATTERY_Y + LARGE_FONT_Y_OFFSET);
 
     x = -1;
     w_os_icon = make_img(real_screen, &icon_os_windows, x, ROW_LAYER_Y);
     x = -1 + 13 + ICON_TEXT_GAP;
-    w_layer_l = make_label(real_screen, FONT_LAYER_L, "L", x, ROW_LAYER_Y);
+    w_layer_l = make_label(real_screen, FONT_LAYER_L, "L", x, ROW_LAYER_Y + LARGE_FONT_Y_OFFSET);
     x += 10;
     w_layer_colon = make_label(real_screen, FONT_LAYER_COLON, ":",
                                x, ROW_LAYER_Y + LAYER_COLON_Y_OFFSET);
@@ -198,11 +199,13 @@ static void build_real_screen(void) {
     w_status_icon = lv_img_create(real_screen);
     lv_obj_set_pos(w_status_icon, -1, status_y);
     w_status_label = make_label(real_screen, FONT_STATUS_TEXT, "",
-                                -1 + 13 + ICON_TEXT_GAP, status_y);
+                                -1 + 13 + ICON_TEXT_GAP, status_y + LARGE_FONT_Y_OFFSET);
 
     // Pet container — virtual_pet owns all rendering inside it.
     lv_obj_t *pet_container = lv_obj_create(real_screen);
     lv_obj_remove_style_all(pet_container);
+    lv_obj_set_style_border_width(pet_container, 0, 0);
+    lv_obj_set_style_bg_opa(pet_container, LV_OPA_TRANSP, 0);
     lv_obj_set_scrollbar_mode(pet_container, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
     lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
@@ -256,8 +259,6 @@ static int peripheral_display_sys_init(const struct device *dev) {
 SYS_INIT(peripheral_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
 
 // --- Split link icon: live connection status ---
-#include <zmk/events/split_peripheral_status_changed.h>
-
 static bool pending_split_connected = false;
 
 static void do_update_split_link(struct k_work *work) {
@@ -392,6 +393,27 @@ static int ble_event_cb(const zmk_event_t *eh) {
 }
 ZMK_LISTENER(display_ble_listener, ble_event_cb);
 ZMK_SUBSCRIPTION(display_ble_listener, zmk_ble_active_profile_changed);
+
+// --- Split link icon: live connection status (central side) ---
+static bool pending_central_split_connected = false;
+
+static void do_update_central_split_link(struct k_work *work) {
+    if (!initialized || !w_link_icon) return;
+    lv_img_set_src(w_link_icon, pending_central_split_connected ? &icon_link : &icon_link_broken);
+}
+K_WORK_DEFINE(update_central_split_link_work, do_update_central_split_link);
+
+static int central_split_status_cb(const zmk_event_t *eh) {
+    const struct zmk_split_peripheral_status_changed *ev =
+        as_zmk_split_peripheral_status_changed(eh);
+    if (ev) {
+        pending_central_split_connected = ev->connected;
+        k_work_submit_to_queue(zmk_display_work_q(), &update_central_split_link_work);
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(display_central_split_listener, central_split_status_cb);
+ZMK_SUBSCRIPTION(display_central_split_listener, zmk_split_peripheral_status_changed);
 
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 

@@ -42,15 +42,17 @@
 
 
 // -----------------------------------------------------------------------------
-// LAYER ROW — VERTICAL OFFSETS FOR BASELINE ALIGNMENT
-// "L" (size 12) sets the baseline. ":" and name are nudged down so their
-// baselines align with "L". Tweak these after hardware testing.
-//   font_badcomic_12: line_height=16, base_line=3  → ascent=13
-//   font_badcomic_8:  line_height=9,  base_line=2  → ascent=7
-//   font_badcomic_9:  line_height=11, base_line=2  → ascent=9
+// LABEL VERTICAL OFFSETS
+// Icons are 14px total: 1px top bleed + 12px content + 1px bottom bleed.
+// LARGE_FONT_Y_OFFSET: shifts font_14/16 labels up so their cap (≈12px) aligns
+//   with the 12px icon content window. Applied to BT profile, battery %,
+//   layer "L", and status text.
+// LAYER_COLON_Y_OFFSET: bottom-justifies ":" (font_10, cap≈8px) in the row.
+// LAYER_NAME_Y_OFFSET: baselines font_12 name with font_16 "L".
 // -----------------------------------------------------------------------------
-#define LAYER_COLON_Y_OFFSET  6   // y += this for ":" relative to ROW_LAYER_Y
-#define LAYER_NAME_Y_OFFSET   4   // y += this for layer name relative to ROW_LAYER_Y
+#define LARGE_FONT_Y_OFFSET   (-2) // cap-align font_14/16 labels to icon content
+#define LAYER_COLON_Y_OFFSET    3  // y += this for ":" relative to ROW_LAYER_Y
+#define LAYER_NAME_Y_OFFSET     0  // y += this for layer name relative to ROW_LAYER_Y
 
 
 // -----------------------------------------------------------------------------
