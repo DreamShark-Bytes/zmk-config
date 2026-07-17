@@ -163,14 +163,16 @@ static void build_real_screen(void) {
     int name_max_w = PET_AREA_X - x - 1;
     w_layer_name = make_label(real_screen, FONT_LAYER_NAME, "BASE",
                               x, ROW_LAYER_Y + LAYER_NAME_Y_OFFSET);
-    lv_obj_set_width(w_layer_name, name_max_w);
-    lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
+    // lv_obj_set_width + lv_label_set_long_mode commented out to isolate crash —
+    // these are untested LVGL calls; if removing them fixes it, one of them is the cause.
+    // lv_obj_set_width(w_layer_name, name_max_w);
+    // lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
 
     int status_y = DISPLAY_HEIGHT - 13;
     w_status = make_label(real_screen, FONT_STATUS_TEXT,
                           STATUS_ICON_CURRENCY "0", -1, status_y);
-    lv_obj_set_width(w_status, PET_AREA_X + 1);
-    lv_label_set_long_mode(w_status, LV_LABEL_LONG_CLIP);
+    // lv_obj_set_width(w_status, PET_AREA_X + 1);
+    // lv_label_set_long_mode(w_status, LV_LABEL_LONG_CLIP);
     // lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
     // lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
 
