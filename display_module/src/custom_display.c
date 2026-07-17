@@ -31,8 +31,6 @@
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/ble.h>
 #include <zmk/events/split_peripheral_status_changed.h>
-// No public header for this — forward-declare directly (same pattern ZMK's widgets use internally)
-extern bool zmk_split_bt_peripheral_is_connected(uint8_t index);
 #endif
 #include <lvgl.h>
 
@@ -385,8 +383,12 @@ static void do_update_split(struct k_work *work) {
 K_WORK_DEFINE(update_split_work, do_update_split);
 
 static int split_status_event_cb(const zmk_event_t *eh) {
-    pending_split_connected = zmk_split_bt_peripheral_is_connected(0);
-    k_work_submit_to_queue(zmk_display_work_q(), &update_split_work);
+    const struct zmk_split_peripheral_status_changed *ev =
+        as_zmk_split_peripheral_status_changed(eh);
+    if (ev) {
+        pending_split_connected = ev->connected;
+        k_work_submit_to_queue(zmk_display_work_q(), &update_split_work);
+    }
     return ZMK_EV_EVENT_BUBBLE;
 }
 ZMK_LISTENER(display_split_listener, split_status_event_cb);
