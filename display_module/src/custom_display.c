@@ -214,6 +214,15 @@ static void build_real_screen(void) {
 }
 
 // ---------------------------------------------------------------------------
+// Forward declarations for central split link polling (defined later in the
+// central DATA CALLBACKS block, but referenced by ensure_initialized).
+// ---------------------------------------------------------------------------
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static void do_poll_split_link(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(poll_split_link_work, do_poll_split_link);
+#endif
+
+// ---------------------------------------------------------------------------
 // Initialization
 // ---------------------------------------------------------------------------
 static void ensure_initialized(void) {
@@ -415,9 +424,6 @@ static bool central_split_is_connected(void) {
     }
     return false;
 }
-
-static void do_poll_split_link(struct k_work *work);
-K_WORK_DELAYABLE_DEFINE(poll_split_link_work, do_poll_split_link);
 
 static void do_poll_split_link(struct k_work *work) {
     if (initialized && w_link_icon) {
