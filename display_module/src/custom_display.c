@@ -174,13 +174,15 @@ static void build_real_screen(void) {
     // lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
     // lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
 
-    lv_obj_t *pet_container = lv_obj_create(real_screen);
-    lv_obj_remove_style_all(pet_container);
-    lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
-    lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
-    lv_obj_t *pet_img = lv_img_create(pet_container);
-    lv_img_set_src(pet_img, &pet_temp_image);
-    lv_obj_set_pos(pet_img, 0, 0);
+    // Pet container commented out to isolate crash — testing whether nested
+    // lv_obj + larger image (62×62) is the culprit vs memory pressure alone.
+    // lv_obj_t *pet_container = lv_obj_create(real_screen);
+    // lv_obj_remove_style_all(pet_container);
+    // lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
+    // lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
+    // lv_obj_t *pet_img = lv_img_create(pet_container);
+    // lv_img_set_src(pet_img, &pet_temp_image);
+    // lv_obj_set_pos(pet_img, 0, 0);
 }
 
 // ---------------------------------------------------------------------------
