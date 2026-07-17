@@ -31,7 +31,7 @@
 // #include "icon_bt.h"
 // #include "icon_check.h"
 // #include "icon_x.h"
-// #include "icon_battery.h"
+#include "icon_battery.h"  // Phase 1 probe: testing lv_img at LV_COLOR_DEPTH=1
 // #include "icon_lightning.h"
 // #include "icon_os_mac.h"
 // #include "icon_os_windows.h"
@@ -143,14 +143,16 @@ static void build_demo_screen(void) {
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
 
-    // Phase 1 probe: plain lv_label, default font, no images.
-    // Keeping default LVGL theme (not remove_style_all) so the screen has a
-    // visible background and the label has contrast — unlike the canvas-based
-    // demo screen, widget-based screens need the theme for text to be visible.
-    // If this renders without a hard fault, labels work at LV_COLOR_DEPTH=1.
+    // Phase 1 probe: lv_label confirmed working. Now testing lv_img with one
+    // INDEXED_1BIT icon. If this hard faults, lv_img is incompatible with
+    // LV_COLOR_DEPTH=1 and all icons must use canvas-based rendering instead.
     lv_obj_t *test_lbl = lv_label_create(real_screen);
     lv_label_set_text(test_lbl, "Hello");
     lv_obj_set_pos(test_lbl, 0, 0);
+
+    lv_obj_t *test_img = lv_img_create(real_screen);
+    lv_img_set_src(test_img, &icon_battery);
+    lv_obj_set_pos(test_img, 0, 20);
 
 // Phase 2 layout — uncomment after verifying lv_img and font rendering:
 //
