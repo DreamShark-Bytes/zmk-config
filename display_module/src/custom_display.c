@@ -24,18 +24,17 @@
 #include "display_config.h"
 #include "demo_list.h"
 
-// Phase 2: uncomment when lv_img / font rendering is verified on hardware.
-// #include <stdio.h>
-// #include "icon_link.h"
-// #include "icon_link_broken.h"
-// #include "icon_bt.h"
-// #include "icon_check.h"
-// #include "icon_x.h"
-#include "icon_battery.h"  // Phase 1 probe: testing lv_img at LV_COLOR_DEPTH=1
-// #include "icon_lightning.h"
-// #include "icon_os_mac.h"
-// #include "icon_os_windows.h"
-// #include "pet_temp_image.h"
+#include <stdio.h>
+#include "icon_link.h"
+#include "icon_link_broken.h"
+#include "icon_bt.h"
+#include "icon_check.h"
+#include "icon_x.h"
+#include "icon_battery.h"
+#include "icon_lightning.h"
+#include "icon_os_mac.h"
+#include "icon_os_windows.h"
+#include "pet_temp_image.h"
 
 LOG_MODULE_REGISTER(custom_display, CONFIG_ZMK_LOG_LEVEL);
 
@@ -70,38 +69,38 @@ static lv_obj_t *canvas = NULL;
 static int demo_idx = 0;
 
 // ---------------------------------------------------------------------------
-// Phase 2 widget handles — uncomment when layout is added back.
+// Widget handles — updated by data callbacks (Phase 2)
 // ---------------------------------------------------------------------------
-// static lv_obj_t *w_link_icon     = NULL;
-// static lv_obj_t *w_bt_icon       = NULL;
-// static lv_obj_t *w_bt_profile    = NULL;
-// static lv_obj_t *w_bt_conn_icon  = NULL;
-// static lv_obj_t *w_battery_icon  = NULL;
-// static lv_obj_t *w_battery_pct   = NULL;
-// static lv_obj_t *w_os_icon       = NULL;
-// static lv_obj_t *w_layer_l       = NULL;
-// static lv_obj_t *w_layer_colon   = NULL;
-// static lv_obj_t *w_layer_name    = NULL;
-// static lv_obj_t *w_status        = NULL;
+static lv_obj_t *w_link_icon     = NULL;
+static lv_obj_t *w_bt_icon       = NULL;
+static lv_obj_t *w_bt_profile    = NULL;
+static lv_obj_t *w_bt_conn_icon  = NULL;
+static lv_obj_t *w_battery_icon  = NULL;
+static lv_obj_t *w_battery_pct   = NULL;
+static lv_obj_t *w_os_icon       = NULL;
+static lv_obj_t *w_layer_l       = NULL;
+static lv_obj_t *w_layer_colon   = NULL;
+static lv_obj_t *w_layer_name    = NULL;
+static lv_obj_t *w_status        = NULL;
 
 // ---------------------------------------------------------------------------
-// Phase 2 helpers — uncomment when layout is added back.
+// Layout helpers
 // ---------------------------------------------------------------------------
-// static lv_obj_t *make_img(lv_obj_t *parent, const lv_img_dsc_t *src, int x, int y) {
-//     lv_obj_t *img = lv_img_create(parent);
-//     lv_img_set_src(img, src);
-//     lv_obj_set_pos(img, x, y);
-//     return img;
-// }
-//
-// static lv_obj_t *make_label(lv_obj_t *parent, const lv_font_t *font,
-//                              const char *text, int x, int y) {
-//     lv_obj_t *lbl = lv_label_create(parent);
-//     lv_obj_set_style_text_font(lbl, font, 0);
-//     lv_label_set_text(lbl, text);
-//     lv_obj_set_pos(lbl, x, y);
-//     return lbl;
-// }
+static lv_obj_t *make_img(lv_obj_t *parent, const lv_img_dsc_t *src, int x, int y) {
+    lv_obj_t *img = lv_img_create(parent);
+    lv_img_set_src(img, src);
+    lv_obj_set_pos(img, x, y);
+    return img;
+}
+
+static lv_obj_t *make_label(lv_obj_t *parent, const lv_font_t *font,
+                             const char *text, int x, int y) {
+    lv_obj_t *lbl = lv_label_create(parent);
+    lv_obj_set_style_text_font(lbl, font, 0);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_pos(lbl, x, y);
+    return lbl;
+}
 
 // ---------------------------------------------------------------------------
 // Demo screen (canvas-based, for mockup images)
@@ -133,72 +132,54 @@ static void build_demo_screen(void) {
 }
 
 // ---------------------------------------------------------------------------
-// Real layout screen
-// Stub: creates an empty screen to confirm the three-state toggle works
-// without crashing. Full widget layout is added in Phase 2 once lv_img
-// and font rendering are verified on hardware.
-//
-// Phase 2: replace the stub body with the commented block below.
+// Real layout screen — info column (left) + pet area (right)
+// Placeholder values shown until Phase 2 data callbacks are wired in.
 // ---------------------------------------------------------------------------
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
 
-    // Phase 1 probe: lv_label + lv_img confirmed working. Now testing custom
-    // font (BadComic 12px) via lv_obj_set_style_text_font. If this hard faults,
-    // the font .c files have a compilation or data issue at LV_COLOR_DEPTH=1.
-    lv_obj_t *test_lbl = lv_label_create(real_screen);
-    lv_label_set_text(test_lbl, "Hello");
-    lv_obj_set_style_text_font(test_lbl, FONT_LAYER_L, 0);
-    lv_obj_set_pos(test_lbl, 0, 0);
+    int x = -1;
+    w_link_icon = make_img(real_screen, &icon_link, x, ROW_TOP_Y);
+    x = -1 + 13 + ICON_TEXT_GAP;
+    w_bt_icon = make_img(real_screen, &icon_bt, x, ROW_TOP_Y);
+    x += 13 + ICON_TEXT_GAP;
+    w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y);
+    x += 9 + ICON_TEXT_GAP;
+    w_bt_conn_icon = make_img(real_screen, &icon_check, x, ROW_TOP_Y);
 
-    lv_obj_t *test_img = lv_img_create(real_screen);
-    lv_img_set_src(test_img, &icon_battery);
-    lv_obj_set_pos(test_img, 0, 20);
+    x = -1;
+    w_battery_icon = make_img(real_screen, &icon_battery, x, ROW_BATTERY_Y);
+    x = -1 + 13 + ICON_TEXT_GAP;
+    w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%", x, ROW_BATTERY_Y);
 
-// Phase 2 layout — uncomment after verifying lv_img and font rendering:
-//
-//     int x = -1;
-//     w_link_icon = make_img(real_screen, &icon_link, x, ROW_TOP_Y);
-//     x = -1 + 13 + ICON_TEXT_GAP;
-//     w_bt_icon = make_img(real_screen, &icon_bt, x, ROW_TOP_Y);
-//     x += 13 + ICON_TEXT_GAP;
-//     w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y);
-//     x += 9 + ICON_TEXT_GAP;
-//     w_bt_conn_icon = make_img(real_screen, &icon_check, x, ROW_TOP_Y);
-//
-//     x = -1;
-//     w_battery_icon = make_img(real_screen, &icon_battery, x, ROW_BATTERY_Y);
-//     x = -1 + 13 + ICON_TEXT_GAP;
-//     w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%", x, ROW_BATTERY_Y);
-//
-//     x = -1;
-//     w_os_icon = make_img(real_screen, &icon_os_windows, x, ROW_LAYER_Y);
-//     x = -1 + 13 + ICON_TEXT_GAP;
-//     w_layer_l = make_label(real_screen, FONT_LAYER_L, "L", x, ROW_LAYER_Y);
-//     x += 10;
-//     w_layer_colon = make_label(real_screen, FONT_LAYER_COLON, ":",
-//                                x, ROW_LAYER_Y + LAYER_COLON_Y_OFFSET);
-//     x += 4;
-//     int name_max_w = PET_AREA_X - x - 1;
-//     w_layer_name = make_label(real_screen, FONT_LAYER_NAME, "BASE",
-//                               x, ROW_LAYER_Y + LAYER_NAME_Y_OFFSET);
-//     lv_obj_set_width(w_layer_name, name_max_w);
-//     lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
-//
-//     int status_y = DISPLAY_HEIGHT - 13;
-//     w_status = make_label(real_screen, FONT_STATUS_TEXT,
-//                           STATUS_ICON_CURRENCY "0", -1, status_y);
-//     lv_obj_set_width(w_status, PET_AREA_X + 1);
-//     lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
-//     lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
-//
-//     lv_obj_t *pet_container = lv_obj_create(real_screen);
-//     lv_obj_remove_style_all(pet_container);
-//     lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
-//     lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
-//     lv_obj_t *pet_img = lv_img_create(pet_container);
-//     lv_img_set_src(pet_img, &pet_temp_image);
-//     lv_obj_set_pos(pet_img, 0, 0);
+    x = -1;
+    w_os_icon = make_img(real_screen, &icon_os_windows, x, ROW_LAYER_Y);
+    x = -1 + 13 + ICON_TEXT_GAP;
+    w_layer_l = make_label(real_screen, FONT_LAYER_L, "L", x, ROW_LAYER_Y);
+    x += 10;
+    w_layer_colon = make_label(real_screen, FONT_LAYER_COLON, ":",
+                               x, ROW_LAYER_Y + LAYER_COLON_Y_OFFSET);
+    x += 4;
+    int name_max_w = PET_AREA_X - x - 1;
+    w_layer_name = make_label(real_screen, FONT_LAYER_NAME, "BASE",
+                              x, ROW_LAYER_Y + LAYER_NAME_Y_OFFSET);
+    lv_obj_set_width(w_layer_name, name_max_w);
+    lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
+
+    int status_y = DISPLAY_HEIGHT - 13;
+    w_status = make_label(real_screen, FONT_STATUS_TEXT,
+                          STATUS_ICON_CURRENCY "0", -1, status_y);
+    lv_obj_set_width(w_status, PET_AREA_X + 1);
+    lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
+
+    lv_obj_t *pet_container = lv_obj_create(real_screen);
+    lv_obj_remove_style_all(pet_container);
+    lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
+    lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
+    lv_obj_t *pet_img = lv_img_create(pet_container);
+    lv_img_set_src(pet_img, &pet_temp_image);
+    lv_obj_set_pos(pet_img, 0, 0);
 }
 
 // ---------------------------------------------------------------------------
