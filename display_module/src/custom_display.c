@@ -132,11 +132,23 @@ static void build_demo_screen(void) {
 }
 
 // ---------------------------------------------------------------------------
-// Real layout screen — info column (left) + pet area (right)
+// Real layout screen
+// Central (left): full info column — BT, battery, layer, status, pet area.
+// Peripheral (right): split connection icon only (pet display — Phase 2).
 // Placeholder values shown until Phase 2 data callbacks are wired in.
 // ---------------------------------------------------------------------------
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
+
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    // Right half — split connection + battery until pet is implemented.
+    // Mirrors the top two rows of the left layout; pet area fills the rest later.
+    w_link_icon = make_img(real_screen, &icon_link, -1, ROW_TOP_Y);
+    w_battery_icon = make_img(real_screen, &icon_battery, -1, ROW_BATTERY_Y);
+    w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%",
+                               -1 + 13 + ICON_TEXT_GAP, ROW_BATTERY_Y);
+    return;
+#endif
 
     int x = -1;
     w_link_icon = make_img(real_screen, &icon_link, x, ROW_TOP_Y);
@@ -163,28 +175,23 @@ static void build_real_screen(void) {
     int name_max_w = PET_AREA_X - x - 1;
     w_layer_name = make_label(real_screen, FONT_LAYER_NAME, "BASE",
                               x, ROW_LAYER_Y + LAYER_NAME_Y_OFFSET);
-    // lv_obj_set_width + lv_label_set_long_mode commented out to isolate crash —
-    // these are untested LVGL calls; if removing them fixes it, one of them is the cause.
-    // lv_obj_set_width(w_layer_name, name_max_w);
-    // lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
+    lv_obj_set_width(w_layer_name, name_max_w);
+    lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
 
     int status_y = DISPLAY_HEIGHT - 13;
     w_status = make_label(real_screen, FONT_STATUS_TEXT,
                           STATUS_ICON_CURRENCY "0", -1, status_y);
-    // lv_obj_set_width(w_status, PET_AREA_X + 1);
-    // lv_label_set_long_mode(w_status, LV_LABEL_LONG_CLIP);
-    // lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    // lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
+    lv_obj_set_width(w_status, PET_AREA_X + 1);
+    lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
 
-    // Pet container commented out to isolate crash — testing whether nested
-    // lv_obj + larger image (62×62) is the culprit vs memory pressure alone.
-    // lv_obj_t *pet_container = lv_obj_create(real_screen);
-    // lv_obj_remove_style_all(pet_container);
-    // lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
-    // lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
-    // lv_obj_t *pet_img = lv_img_create(pet_container);
-    // lv_img_set_src(pet_img, &pet_temp_image);
-    // lv_obj_set_pos(pet_img, 0, 0);
+    lv_obj_t *pet_container = lv_obj_create(real_screen);
+    lv_obj_remove_style_all(pet_container);
+    lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
+    lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
+    lv_obj_t *pet_img = lv_img_create(pet_container);
+    lv_img_set_src(pet_img, &pet_temp_image);
+    lv_obj_set_pos(pet_img, 0, 0);
 }
 
 // ---------------------------------------------------------------------------
