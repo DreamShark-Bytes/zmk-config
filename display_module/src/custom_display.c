@@ -224,6 +224,10 @@ static void ensure_initialized(void) {
     build_real_screen();
     initialized = true;
 
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(500));
+#endif
+
     if (IS_ENABLED(CONFIG_CUSTOM_DISPLAY_DEFAULT_ON)) {
         lv_scr_load(real_screen);
         current_state = DISPLAY_STATE_CUSTOM;
@@ -394,26 +398,34 @@ static int ble_event_cb(const zmk_event_t *eh) {
 ZMK_LISTENER(display_ble_listener, ble_event_cb);
 ZMK_SUBSCRIPTION(display_ble_listener, zmk_ble_active_profile_changed);
 
-// --- Split link icon: live connection status (central side) ---
-static bool pending_central_split_connected = false;
+// --- Split link icon: polling (central cannot subscribe to peripheral's status event;
+//     zmk_split_peripheral_status_changed is only raised in peripheral.c, never central.c).
+//     Poll the BLE transport's get_status() every 2s instead. ---
+#include <zmk/split/transport/central.h>
+#include <zephyr/sys/iterable_sections.h>
 
-static void do_update_central_split_link(struct k_work *work) {
-    if (!initialized || !w_link_icon) return;
-    lv_img_set_src(w_link_icon, pending_central_split_connected ? &icon_link : &icon_link_broken);
-}
-K_WORK_DEFINE(update_central_split_link_work, do_update_central_split_link);
-
-static int central_split_status_cb(const zmk_event_t *eh) {
-    const struct zmk_split_peripheral_status_changed *ev =
-        as_zmk_split_peripheral_status_changed(eh);
-    if (ev) {
-        pending_central_split_connected = ev->connected;
-        k_work_submit_to_queue(zmk_display_work_q(), &update_central_split_link_work);
+static bool central_split_is_connected(void) {
+    STRUCT_SECTION_FOREACH(zmk_split_transport_central, t) {
+        if (t->api->get_status) {
+            struct zmk_split_transport_status s = t->api->get_status();
+            if (s.connections != ZMK_SPLIT_TRANSPORT_CONNECTIONS_STATUS_DISCONNECTED) {
+                return true;
+            }
+        }
     }
-    return ZMK_EV_EVENT_BUBBLE;
+    return false;
 }
-ZMK_LISTENER(display_central_split_listener, central_split_status_cb);
-ZMK_SUBSCRIPTION(display_central_split_listener, zmk_split_peripheral_status_changed);
+
+static void do_poll_split_link(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(poll_split_link_work, do_poll_split_link);
+
+static void do_poll_split_link(struct k_work *work) {
+    if (initialized && w_link_icon) {
+        lv_img_set_src(w_link_icon,
+                       central_split_is_connected() ? &icon_link : &icon_link_broken);
+    }
+    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(2000));
+}
 
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
