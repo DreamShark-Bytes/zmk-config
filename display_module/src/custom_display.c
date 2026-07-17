@@ -3,12 +3,13 @@
  *
  * Three display states cycled by &display_toggle:
  *   STOCK  — ZMK built-in screen (BT, battery, layer number)
- *   CUSTOM — Real layout: info column + pet area
- *   DEMO   — Canvas showing mockup images; advance with &demo_cycle
+ *   CUSTOM — Real layout: info column (left) + pet area (right)
+ *   DEMO   — Canvas showing mockup images; advance with &cycle
  *
  * Configure layout, fonts, and layer names in display_config.h.
  * Wire live data (battery %, layer index, BT status) in the
  * "DATA CALLBACKS — Phase 2" section below.
+ * Pet state (char count, happiness, hunger, name) lives in virtual_pet.c.
  */
 
 #define DT_DRV_COMPAT zmk_behavior_display_toggle
@@ -23,6 +24,7 @@
 
 #include "display_config.h"
 #include "demo_list.h"
+#include "virtual_pet.h"
 
 #include <stdio.h>
 #include "icon_link.h"
@@ -34,7 +36,6 @@
 #include "icon_lightning.h"
 #include "icon_os_mac.h"
 #include "icon_os_windows.h"
-#include "pet_temp_image.h"
 
 LOG_MODULE_REGISTER(custom_display, CONFIG_ZMK_LOG_LEVEL);
 
@@ -81,7 +82,8 @@ static lv_obj_t *w_os_icon       = NULL;
 static lv_obj_t *w_layer_l       = NULL;
 static lv_obj_t *w_layer_colon   = NULL;
 static lv_obj_t *w_layer_name    = NULL;
-static lv_obj_t *w_status        = NULL;
+static lv_obj_t *w_status_icon   = NULL;  // pet stat icon — content set by virtual_pet
+static lv_obj_t *w_status_label  = NULL;  // pet stat value — content set by virtual_pet
 
 // ---------------------------------------------------------------------------
 // Layout helpers
@@ -133,16 +135,17 @@ static void build_demo_screen(void) {
 
 // ---------------------------------------------------------------------------
 // Real layout screen
-// Central (left): full info column — BT, battery, layer, status, pet area.
-// Peripheral (right): split connection icon only (pet display — Phase 2).
+// Central (left): full info column — BT, battery, layer, pet stats, pet area.
+// Peripheral (right): split connection icon + battery (pet display — Phase 2).
 // Placeholder values shown until Phase 2 data callbacks are wired in.
+// Status row (bottom-left) and pet container are handed to virtual_pet after
+// widget creation — virtual_pet owns all content within them.
 // ---------------------------------------------------------------------------
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     // Right half — split connection + battery until pet is implemented.
-    // Mirrors the top two rows of the left layout; pet area fills the rest later.
     w_link_icon = make_img(real_screen, &icon_link, -1, ROW_TOP_Y);
     w_battery_icon = make_img(real_screen, &icon_battery, -1, ROW_BATTERY_Y);
     w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%",
@@ -178,20 +181,20 @@ static void build_real_screen(void) {
     lv_obj_set_width(w_layer_name, name_max_w);
     lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
 
+    // Status row — icon shell + label shell; virtual_pet owns the content.
     int status_y = DISPLAY_HEIGHT - 13;
-    w_status = make_label(real_screen, FONT_STATUS_TEXT,
-                          STATUS_ICON_CURRENCY "0", -1, status_y);
-    lv_obj_set_width(w_status, PET_AREA_X + 1);
-    lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
+    w_status_icon = lv_img_create(real_screen);
+    lv_obj_set_pos(w_status_icon, -1, status_y);
+    w_status_label = make_label(real_screen, FONT_STATUS_TEXT, "",
+                                -1 + 13 + ICON_TEXT_GAP, status_y);
 
+    // Pet container — virtual_pet owns all rendering inside it.
     lv_obj_t *pet_container = lv_obj_create(real_screen);
     lv_obj_remove_style_all(pet_container);
     lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
     lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
-    lv_obj_t *pet_img = lv_img_create(pet_container);
-    lv_img_set_src(pet_img, &pet_temp_image);
-    lv_obj_set_pos(pet_img, 0, 0);
+
+    virtual_pet_init(pet_container, w_status_icon, w_status_label);
 }
 
 // ---------------------------------------------------------------------------
@@ -298,11 +301,6 @@ static void set_display_state(display_state_t state) {
 //     lv_img_set_src(w_link_icon, connected ? &icon_link : &icon_link_broken);
 // }
 
-// void custom_display_set_status(const char *text) {
-//     if (!initialized) return;
-//     lv_label_set_text(w_status, text);
-// }
-
 // ---------------------------------------------------------------------------
 // display_toggle behavior
 // ---------------------------------------------------------------------------
@@ -339,17 +337,26 @@ BEHAVIOR_DT_INST_DEFINE(0, NULL, NULL, NULL, NULL, POST_KERNEL,
 #endif /* DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT) */
 
 // ---------------------------------------------------------------------------
-// demo_cycle trigger (called from demo_cycle.c)
+// cycle trigger (called from cycle.c)
+// Context-sensitive: DEMO advances mockup images; CUSTOM advances pet stats.
 // ---------------------------------------------------------------------------
-static void do_demo_cycle(struct k_work *work) {
+static void do_cycle(struct k_work *work) {
     ensure_initialized();
-    if (current_state != DISPLAY_STATE_DEMO) return;
-    demo_idx = (demo_idx + 1) % demo_image_count;
-    load_demo_image(demo_images[demo_idx]);
+    switch (current_state) {
+    case DISPLAY_STATE_DEMO:
+        demo_idx = (demo_idx + 1) % demo_image_count;
+        load_demo_image(demo_images[demo_idx]);
+        break;
+    case DISPLAY_STATE_CUSTOM:
+        virtual_pet_cycle_stat();
+        break;
+    default:
+        break;
+    }
 }
 
-K_WORK_DEFINE(demo_cycle_work, do_demo_cycle);
+K_WORK_DEFINE(cycle_work, do_cycle);
 
-void demo_cycle_trigger(void) {
-    k_work_submit_to_queue(zmk_display_work_q(), &demo_cycle_work);
+void cycle_trigger(void) {
+    k_work_submit_to_queue(zmk_display_work_q(), &cycle_work);
 }

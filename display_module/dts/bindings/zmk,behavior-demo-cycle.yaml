@@ -1,8 +1,0 @@
-# Copyright (c) 2024 DreamShark-Bytes
-# SPDX-License-Identifier: MIT
-
-description: Cycle through demo images on the custom display screen
-
-compatible: "zmk,behavior-demo-cycle"
-
-include: zero_param.yaml

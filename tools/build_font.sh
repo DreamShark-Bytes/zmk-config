@@ -20,28 +20,16 @@ FONT_SRC="$ROOT/resources/fonts/BadComic_Font_0_98/TrueType (.ttf)/BadComic-Regu
 OUT="$ROOT/resources/fonts/generated"
 ICONS="$ROOT/resources/icons"
 TOOLS="$ROOT/tools"
-TMP="$(mktemp -d)"
-
 mkdir -p "$OUT"
-
-# ---------------------------------------------------------------------------
-# ICON CODE POINT ASSIGNMENTS (U+E000 private-use range)
-# Add new status-string icons here and update display_config.h to match.
-# ---------------------------------------------------------------------------
-# U+E001  icon_currency   — keycount / currency symbol
-# (future) U+E002  icon_hungry
-# (future) U+E003  icon_angry
-# ---------------------------------------------------------------------------
-
-echo "Building icon TTFs..."
-python3 "$TOOLS/png_to_icon_font.py" \
-    "$ICONS/icon_currency.png" "$TMP/icon_currency.ttf" --codepoint 0xE001
 
 # ---------------------------------------------------------------------------
 # FONT BUILDS
 # Sizes: 8 (layer colon), 9 (layer name), 11 (status string), 12 (battery/BT/layer L)
-# Size 11 includes inline status icons (currency etc.)
-# Full printable ASCII (0x20-0x7F) included in every size.
+# Status icons are now lv_img widgets, not inline font glyphs — no private-use
+# codepoints needed. Full printable ASCII (0x20-0x7F) in every size.
+#
+# png_to_icon_font.py is still available if inline icon glyphs are ever needed
+# (e.g. for a future scrolling notification string). See tools/png_to_icon_font.py.
 # ---------------------------------------------------------------------------
 
 echo "Building font_badcomic_8..."
@@ -58,10 +46,9 @@ lv_font_conv \
     --lv-font-name font_badcomic_9 \
     -o "$OUT/font_badcomic_9.c"
 
-echo "Building font_badcomic_11 (with status icons)..."
+echo "Building font_badcomic_11..."
 lv_font_conv \
     --font "$FONT_SRC" --range "0x20-0x7F" \
-    --font "$TMP/icon_currency.ttf" --range "0xE001" \
     --size 11 --bpp 1 --format lvgl \
     --lv-font-name font_badcomic_11 \
     -o "$OUT/font_badcomic_11.c"
@@ -83,7 +70,6 @@ lv_font_conv \
 # python3 "$TOOLS/apply_fake_bold.py" "$OUT/font_badcomic_11.c" "$OUT/font_badcomic_11_bold.c"
 # python3 "$TOOLS/apply_fake_bold.py" "$OUT/font_badcomic_12.c" "$OUT/font_badcomic_12_bold.c"
 
-rm -rf "$TMP"
 echo ""
 echo "Done. Generated files in $OUT:"
 ls "$OUT/"

@@ -64,27 +64,6 @@
 
 
 // -----------------------------------------------------------------------------
-// STATUS STRING — BOTTOM ROW
-// Keycount and pet notifications pinned to the bottom of the info column.
-// Numbers >= STATUS_ABBREV_THRESHOLD are abbreviated (e.g. 1000000 → "1,000k").
-// Text messages longer than the column scroll as a marquee.
-// STATUS_MARQUEE_SPEED: pixels per second for scroll (higher = faster).
-// -----------------------------------------------------------------------------
-#define STATUS_ABBREV_THRESHOLD  1000000
-#define STATUS_MARQUEE_SPEED     40
-
-
-// -----------------------------------------------------------------------------
-// STATUS STRING ICONS — Unicode private-use code points (U+E000 range)
-// Use these macros to embed icons inline in status strings, e.g.:
-//   STATUS_ICON_CURRENCY "5,896"
-// Add new icons to tools/build_font.sh (assign next U+E00N point),
-// rebuild fonts, then add the macro here.
-// -----------------------------------------------------------------------------
-#define STATUS_ICON_CURRENCY  "\xEE\x80\x81"   // U+E001
-
-
-// -----------------------------------------------------------------------------
 // LAYER NAMES
 // Index matches the layer number in kyria_rev3.keymap.
 // NULL entries display as the raw layer number automatically.

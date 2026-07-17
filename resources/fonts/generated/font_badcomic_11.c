@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 11 px
  * Bpp: 1
- * Opts: --font /home/vince/Documents/zmk-config/tools/../resources/fonts/BadComic_Font_0_98/TrueType (.ttf)/BadComic-Regular.ttf --range 0x20-0x7F --font /tmp/tmp.DhO9PacAdj/icon_currency.ttf --range 0xE001 --size 11 --bpp 1 --format lvgl --lv-font-name font_badcomic_11 -o /home/vince/Documents/zmk-config/tools/../resources/fonts/generated/font_badcomic_11.c
+ * Opts: --font /home/vince/Documents/zmk-config/tools/../resources/fonts/BadComic_Font_0_98/TrueType (.ttf)/BadComic-Regular.ttf --range 0x20-0x7F --size 11 --bpp 1 --format lvgl --lv-font-name font_badcomic_11 -o /home/vince/Documents/zmk-config/tools/../resources/fonts/generated/font_badcomic_11.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -308,11 +308,7 @@ static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
     0xcd, 0x26, 0x92, 0x40,
 
     /* U+007E "~" */
-    0x7, 0x4c,
-
-    /* U+E001 "" */
-    0x3e, 0x21, 0x17, 0x5b, 0xdc, 0x2e, 0xf6, 0xfb,
-    0xff, 0x42, 0x1f, 0x0
+    0x7, 0x4c
 };
 
 
@@ -416,8 +412,7 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
     {.bitmap_index = 425, .adv_w = 59, .box_w = 2, .box_h = 10, .ofs_x = 1, .ofs_y = -1},
     {.bitmap_index = 428, .adv_w = 47, .box_w = 1, .box_h = 11, .ofs_x = 1, .ofs_y = -2},
     {.bitmap_index = 430, .adv_w = 59, .box_w = 3, .box_h = 10, .ofs_x = 0, .ofs_y = -1},
-    {.bitmap_index = 434, .adv_w = 106, .box_w = 5, .box_h = 3, .ofs_x = 1, .ofs_y = 2},
-    {.bitmap_index = 436, .adv_w = 163, .box_w = 9, .box_h = 10, .ofs_x = 0, .ofs_y = 1}
+    {.bitmap_index = 434, .adv_w = 106, .box_w = 5, .box_h = 3, .ofs_x = 1, .ofs_y = 2}
 };
 
 /*---------------------
@@ -431,10 +426,6 @@ static const lv_font_fmt_txt_cmap_t cmaps[] =
 {
     {
         .range_start = 32, .range_length = 95, .glyph_id_start = 1,
-        .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY
-    },
-    {
-        .range_start = 57345, .range_length = 1, .glyph_id_start = 96,
         .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY
     }
 };
@@ -460,7 +451,7 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
     .cmaps = cmaps,
     .kern_dsc = NULL,
     .kern_scale = 0,
-    .cmap_num = 2,
+    .cmap_num = 1,
     .bpp = 1,
     .kern_classes = 0,
     .bitmap_format = 0,
@@ -483,7 +474,7 @@ lv_font_t font_badcomic_11 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
-    .line_height = 13,          /*The maximum line height required by the font*/
+    .line_height = 12,          /*The maximum line height required by the font*/
     .base_line = 2,             /*Baseline measured from the bottom of the line*/
 #if !(LVGL_VERSION_MAJOR == 6 && LVGL_VERSION_MINOR == 0)
     .subpx = LV_FONT_SUBPX_NONE,

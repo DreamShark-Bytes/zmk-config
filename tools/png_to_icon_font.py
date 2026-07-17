@@ -10,9 +10,9 @@ the icon can appear inline in label strings.
 Usage:
   python3 tools/png_to_icon_font.py <icon.png> <output.ttf> [--codepoint 0xE001]
 
-Example (currency icon at U+E001):
+Example (currency icon at U+E001, dark-on-transparent design):
   python3 tools/png_to_icon_font.py resources/icons/icon_currency.png \\
-      /tmp/icon_currency.ttf --codepoint 0xE001
+      /tmp/icon_currency.ttf --codepoint 0xE001 --invert
 
 Then merge with text font via lv_font_conv — see tools/build_font.sh.
 """
@@ -35,7 +35,7 @@ except ImportError:
     sys.exit(1)
 
 
-def png_to_icon_ttf(png_path, output_path, codepoint):
+def png_to_icon_ttf(png_path, output_path, codepoint, invert=False):
     img = Image.open(png_path).convert("RGBA")
     width, height = img.size
     pixels = img.load()
@@ -59,14 +59,17 @@ def png_to_icon_ttf(png_path, output_path, codepoint):
     nd_pen.lineTo((0, height * SCALE))
     nd_pen.closePath()
 
-    # Icon glyph: one filled square per white/opaque pixel.
+    # Icon glyph: one filled square per selected pixel.
+    # --invert: dark pixels (icon drawn dark-on-transparent) → glyph.
+    # default:  light pixels (icon drawn white-on-transparent) → glyph.
     # CCW contours in font space (y-up) = filled outer contour.
     icon_pen = TTGlyphPen(None)
     pixel_count = 0
     for py in range(height):
         for px in range(width):
             r, g, b, a = pixels[px, py]
-            if a > 128 and (r + g + b) > 383:
+            bright = (r + g + b) > 383
+            if a > 128 and (bright != invert):
                 pixel_count += 1
                 # Flip y: PNG y=0 is top; TTF y=0 is bottom
                 fy = height - 1 - py
@@ -95,7 +98,8 @@ def png_to_icon_ttf(png_path, output_path, codepoint):
     )
     fb.setupPost()
     fb.font.save(output_path)
-    print(f"Saved: {output_path}  ({pixel_count} white pixels → glyph U+{codepoint:04X})")
+    mode = "dark" if invert else "light"
+    print(f"Saved: {output_path}  ({pixel_count} {mode} pixels → glyph U+{codepoint:04X})")
 
 
 def main():
@@ -108,8 +112,12 @@ def main():
         "--codepoint", default="0xE001",
         help="Unicode private-use code point (default: 0xE001)",
     )
+    parser.add_argument(
+        "--invert", action="store_true",
+        help="Select dark pixels as the glyph (for icons drawn dark-on-transparent, matching convert_image.py --invert convention)",
+    )
     args = parser.parse_args()
-    png_to_icon_ttf(args.png, args.output, int(args.codepoint, 16))
+    png_to_icon_ttf(args.png, args.output, int(args.codepoint, 16), invert=args.invert)
 
 
 if __name__ == "__main__":

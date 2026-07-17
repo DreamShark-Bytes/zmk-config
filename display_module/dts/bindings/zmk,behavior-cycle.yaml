@@ -1,0 +1,8 @@
+# Copyright (c) 2024 DreamShark-Bytes
+# SPDX-License-Identifier: MIT
+
+description: Context-sensitive cycle — advances demo images in DEMO state, pet stats in CUSTOM state
+
+compatible: "zmk,behavior-cycle"
+
+include: zero_param.yaml
