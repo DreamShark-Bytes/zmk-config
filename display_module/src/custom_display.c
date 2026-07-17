@@ -155,6 +155,12 @@ static void build_demo_screen(void) {
 // ---------------------------------------------------------------------------
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
+    // Strip the monochrome theme's border from the screen object (theme applies it via
+    // lv_obj_add_style, which remove_style_all removes). Without this, the theme border
+    // appears as a 1px white bar at x=127 (right edge) and y=63 (bottom edge).
+    lv_obj_remove_style_all(real_screen);
+    lv_obj_set_style_bg_opa(real_screen, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(real_screen, lv_color_white(), 0);
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     // Right half — split connection + battery until pet is implemented.

@@ -115,7 +115,10 @@ void virtual_pet_init(lv_obj_t *pet_container, lv_obj_t *status_icon,
     pet_initialized = true;
     render_status();
 
-    // Pet image goes here — placeholder removed (had built-in border frame causing white bars)
+    // Placeholder pet image — replaced when sprite system is built
+    lv_obj_t *pet_img = lv_img_create(w_pet_container);
+    lv_img_set_src(pet_img, &pet_temp_image);
+    lv_obj_set_pos(pet_img, 0, 0);
 }
 
 void virtual_pet_cycle_stat(void) {
