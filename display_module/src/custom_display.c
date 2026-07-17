@@ -170,8 +170,9 @@ static void build_real_screen(void) {
     w_status = make_label(real_screen, FONT_STATUS_TEXT,
                           STATUS_ICON_CURRENCY "0", -1, status_y);
     lv_obj_set_width(w_status, PET_AREA_X + 1);
-    lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
+    lv_label_set_long_mode(w_status, LV_LABEL_LONG_CLIP);
+    // lv_label_set_long_mode(w_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    // lv_obj_set_style_anim_speed(w_status, STATUS_MARQUEE_SPEED, 0);
 
     lv_obj_t *pet_container = lv_obj_create(real_screen);
     lv_obj_remove_style_all(pet_container);
