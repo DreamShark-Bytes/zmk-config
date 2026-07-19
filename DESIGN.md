@@ -75,6 +75,21 @@ With 14500 1000mAh batteries:
 
 These are already present in `config/kyria_rev3.conf`. Tuning their timeout values is the primary tool for extending battery life.
 
+**CPU impact of display features**
+
+Display event listeners and work items are negligible on a 64MHz Cortex-M4. All estimates below assume 5–10 key/sec typing:
+
+| Feature | Cost per event | Duty cycle |
+|---|---|---|
+| Keycode event callback (char count, word boundary) | ~5 integer ops + work submit → nanoseconds | Once per keypress |
+| WPM render (snprintf + lv_label_set_text) | ~10–50 µs | Once per keypress or 5s auto-cycle |
+| 2s split link poll (central) | < 1ms per call | 0.05% |
+| 800ms egg bob (peripheral) | lv_obj_set_y + reschedule → < 1ms | 0.1% |
+
+The BLE radio and display backlight dominate power draw — not CPU computation. The wake-up pattern (timers preventing deep sleep between events) is the correct concern, not CPU time per event. Zephyr's tickless kernel handles short work items efficiently: the kernel sleeps between timer fires and wakes only when a timer expires.
+
+If hard numbers are needed: enable `CONFIG_THREAD_ANALYZER=y` + `CONFIG_THREAD_ANALYZER_AUTO=y` + `CONFIG_ZMK_USB_LOGGING=y` in a test build. Type for 60 seconds while the left half is plugged in via USB and read the log for per-thread CPU% and stack high-water marks. See PLANNED.md → "Performance: BLE and Sleep Timer Baseline" for the full procedure.
+
 ## Display System
 
 ### How ZMK knows the display
@@ -252,3 +267,10 @@ Pet state will track on the central and sync to the peripheral via BLE split tra
 | 2026-07-17 | Split link icon live on peripheral via zmk_split_peripheral_status_changed | Event fires on peripheral only with ev->connected; ZMK exposes no equivalent public event on the central — left link icon is static |
 | 2026-07-17 | PET_AREA_X corrected 66→67 | Pet image right border (column 61) was rendering at screen x=127 (on-screen); shifting container 1px right puts it at x=128 (clipped off-screen) |
 | 2026-07-17 | Font sizes updated to 10, 12, 14, 16 | Larger cap heights for better correspondence with mockup work in Clip Studio; adding a new size requires build_font.sh + CMakeLists.txt + display_config.h |
+| 2026-07-18 | typing_stats.c decoupled from virtual_pet.c | Pet imports char count from typing_stats as a prerequisite; two owners of the same counter creates sync bugs and makes the pet harder to remove/replace |
+| 2026-07-18 | WPM via word boundary detection (not chars/5) | Word boundary = non-alpha, non-transparent key after alpha key; more accurate than chars/5 proxy across different word length distributions |
+| 2026-07-18 | Dash and apostrophe transparent for WPM | Hyphenated compounds (hello-world) and contractions (don't) count as one word each; prev_was_alpha is unchanged when either fires |
+| 2026-07-18 | Modifier keycodes (0xE0–0xE7) fully transparent | Excluded from char_count and do not update word boundary state; layer keys (&mo, &lt hold) never fire zmk_keycode_state_changed and are already invisible |
+| 2026-07-18 | Auto-cycle timer in custom_display.c, not typing_stats.c | Cycling is a display coordination concern; typing_stats only owns data and rendering |
+| 2026-07-18 | Right half shows bobbing egg (pet_temp_image) at PET_AREA position | Placeholder that teases the virtual pet feature; link icon and battery remain in the left column of the right display |
+| 2026-07-18 | Branch feature/virtual-pet after merge to main, not before | Branching before decoupling creates desync — pet branch would inherit coupled char counter; branching after gives it typing_stats.c as a ready prerequisite |

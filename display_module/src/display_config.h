@@ -30,6 +30,15 @@
 
 
 // -----------------------------------------------------------------------------
+// TYPING STATS DISPLAY
+// STAT_CYCLE_INTERVAL_MS: how long each stat is shown before auto-advancing.
+// EGG_BOB_INTERVAL_MS: period of the peripheral egg bob animation (ms).
+// -----------------------------------------------------------------------------
+#define STAT_CYCLE_INTERVAL_MS  5000   // ms between auto-cycle of char count / WPM
+#define EGG_BOB_INTERVAL_MS      800   // ms per bob frame on peripheral egg display
+
+
+// -----------------------------------------------------------------------------
 // INFO COLUMN — ROW Y POSITIONS
 // y coordinate of the top of each row's bounding box.
 // Icons are 13×14px total (12×13 white content + 1px bleed).

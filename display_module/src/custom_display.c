@@ -9,7 +9,7 @@
  * Configure layout, fonts, and layer names in display_config.h.
  * Wire live data (battery %, layer index, BT status) in the
  * "DATA CALLBACKS — Phase 2" section below.
- * Pet state (char count, happiness, hunger, name) lives in virtual_pet.c.
+ * Typing stats (char count, WPM) live in typing_stats.c.
  */
 
 #define DT_DRV_COMPAT zmk_behavior_display_toggle
@@ -36,9 +36,10 @@
 
 #include "display_config.h"
 #include "demo_list.h"
-#include "virtual_pet.h"
+#include "typing_stats.h"
 
 #include <stdio.h>
+#include "pet_temp_image.h"
 #include "icon_link.h"
 #include "icon_link_broken.h"
 #include "icon_bt.h"
@@ -94,8 +95,12 @@ static lv_obj_t *w_os_icon       = NULL;
 static lv_obj_t *w_layer_l       = NULL;
 static lv_obj_t *w_layer_colon   = NULL;
 static lv_obj_t *w_layer_name    = NULL;
-static lv_obj_t *w_status_icon   = NULL;  // pet stat icon — content set by virtual_pet
-static lv_obj_t *w_status_label  = NULL;  // pet stat value — content set by virtual_pet
+
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static lv_obj_t *w_egg_img       = NULL;
+static int       egg_base_y      = PET_AREA_Y;
+static int       egg_bob_offset  = 0;
+#endif
 
 // ---------------------------------------------------------------------------
 // Layout helpers
@@ -147,11 +152,8 @@ static void build_demo_screen(void) {
 
 // ---------------------------------------------------------------------------
 // Real layout screen
-// Central (left): full info column — BT, battery, layer, pet stats, pet area.
-// Peripheral (right): split connection icon + battery (pet display — Phase 2).
-// Placeholder values shown until Phase 2 data callbacks are wired in.
-// Status row (bottom-left) and pet container are handed to virtual_pet after
-// widget creation — virtual_pet owns all content within them.
+// Central (left): info column (BT, battery, layer) + typing stats row (bottom).
+// Peripheral (right): split link + battery in left column, bobbing egg in pet area.
 // ---------------------------------------------------------------------------
 static void build_real_screen(void) {
     real_screen = lv_obj_create(NULL);
@@ -163,12 +165,16 @@ static void build_real_screen(void) {
     lv_obj_set_style_bg_color(real_screen, lv_color_white(), 0);
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    // Right half — split connection + battery until pet is implemented.
-    // Start disconnected; zmk_split_peripheral_status_changed fires when link comes up.
+    // Right half — split link status, battery, and bobbing egg in the pet area.
     w_link_icon = make_img(real_screen, &icon_link_broken, -1, ROW_TOP_Y);
     w_battery_icon = make_img(real_screen, &icon_battery, -1, ROW_BATTERY_Y);
     w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%",
                                -1 + 13 + ICON_TEXT_GAP, ROW_BATTERY_Y + LARGE_FONT_Y_OFFSET);
+    w_egg_img = lv_img_create(real_screen);
+    lv_img_set_src(w_egg_img, &pet_temp_image);
+    lv_obj_set_pos(w_egg_img, PET_AREA_X, PET_AREA_Y);
+    egg_base_y = PET_AREA_Y;
+    egg_bob_offset = 0;
     return;
 #endif
 
@@ -194,38 +200,39 @@ static void build_real_screen(void) {
     w_layer_colon = make_label(real_screen, FONT_LAYER_COLON, ":",
                                x, ROW_LAYER_Y + LAYER_COLON_Y_OFFSET);
     x += 4;
-    int name_max_w = PET_AREA_X - x - 1;
+    int name_max_w = DISPLAY_WIDTH - x - 2;
     w_layer_name = make_label(real_screen, FONT_LAYER_NAME, "BASE",
                               x, ROW_LAYER_Y + LAYER_NAME_Y_OFFSET);
     lv_obj_set_width(w_layer_name, name_max_w);
     lv_label_set_long_mode(w_layer_name, LV_LABEL_LONG_CLIP);
 
-    // Status row — icon shell + label shell; virtual_pet owns the content.
+    // Status row — typing_stats owns the content.
     int status_y = DISPLAY_HEIGHT - 13;
-    w_status_icon = lv_img_create(real_screen);
+    lv_obj_t *w_status_icon = lv_img_create(real_screen);
     lv_obj_set_pos(w_status_icon, -1, status_y);
-    w_status_label = make_label(real_screen, FONT_STATUS_TEXT, "",
-                                -1 + 13 + ICON_TEXT_GAP, status_y + LARGE_FONT_Y_OFFSET);
+    lv_obj_t *w_status_label = make_label(real_screen, FONT_STATUS_TEXT, "",
+                                          -1 + 13 + ICON_TEXT_GAP, status_y + LARGE_FONT_Y_OFFSET);
 
-    // Pet container — virtual_pet owns all rendering inside it.
-    lv_obj_t *pet_container = lv_obj_create(real_screen);
-    lv_obj_remove_style_all(pet_container);
-    lv_obj_set_style_border_width(pet_container, 0, 0);
-    lv_obj_set_style_bg_opa(pet_container, LV_OPA_TRANSP, 0);
-    lv_obj_set_scrollbar_mode(pet_container, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_set_pos(pet_container, PET_AREA_X, PET_AREA_Y);
-    lv_obj_set_size(pet_container, PET_AREA_WIDTH, PET_AREA_HEIGHT);
-
-    virtual_pet_init(pet_container, w_status_icon, w_status_label);
+    typing_stats_init(w_status_icon, w_status_label);
 }
 
 // ---------------------------------------------------------------------------
-// Forward declarations for central split link polling (defined later in the
-// central DATA CALLBACKS block, but referenced by ensure_initialized).
+// Forward declarations — defined later but referenced by ensure_initialized
+// or the peripheral init path.
 // ---------------------------------------------------------------------------
+static void set_display_state(display_state_t state);
+
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 static void do_poll_split_link(struct k_work *work);
 K_WORK_DELAYABLE_DEFINE(poll_split_link_work, do_poll_split_link);
+
+static void do_auto_cycle(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(auto_cycle_work, do_auto_cycle);
+#endif
+
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static void do_egg_bob(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(egg_bob_work, do_egg_bob);
 #endif
 
 // ---------------------------------------------------------------------------
@@ -244,8 +251,7 @@ static void ensure_initialized(void) {
 #endif
 
     if (IS_ENABLED(CONFIG_CUSTOM_DISPLAY_DEFAULT_ON)) {
-        lv_scr_load(real_screen);
-        current_state = DISPLAY_STATE_CUSTOM;
+        set_display_state(DISPLAY_STATE_CUSTOM);
     }
 }
 
@@ -263,6 +269,7 @@ static void do_peripheral_display_init(struct k_work *work) {
     ensure_initialized();
     lv_scr_load(real_screen);
     current_state = DISPLAY_STATE_CUSTOM;
+    k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
 }
 K_WORK_DEFINE(peripheral_display_work, do_peripheral_display_init);
 
@@ -298,6 +305,14 @@ static int split_status_event_cb(const zmk_event_t *eh) {
 ZMK_LISTENER(display_split_listener, split_status_event_cb);
 ZMK_SUBSCRIPTION(display_split_listener, zmk_split_peripheral_status_changed);
 
+// --- Egg bob animation ---
+static void do_egg_bob(struct k_work *work) {
+    if (!initialized || !w_egg_img) return;
+    egg_bob_offset ^= 1;
+    lv_obj_set_y(w_egg_img, egg_base_y + egg_bob_offset);
+    k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
+}
+
 #endif /* !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
 // ---------------------------------------------------------------------------
@@ -311,6 +326,10 @@ static void set_display_state(display_state_t state) {
         break;
     case DISPLAY_STATE_CUSTOM:
         lv_scr_load(real_screen);
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+        k_work_reschedule_for_queue(zmk_display_work_q(), &auto_cycle_work,
+                                    K_MSEC(STAT_CYCLE_INTERVAL_MS));
+#endif
         break;
     case DISPLAY_STATE_DEMO:
         lv_scr_load(demo_screen);
@@ -413,6 +432,14 @@ static int ble_event_cb(const zmk_event_t *eh) {
 ZMK_LISTENER(display_ble_listener, ble_event_cb);
 ZMK_SUBSCRIPTION(display_ble_listener, zmk_ble_active_profile_changed);
 
+// --- Stat auto-cycle ---
+static void do_auto_cycle(struct k_work *work) {
+    if (current_state != DISPLAY_STATE_CUSTOM) return;
+    typing_stats_cycle();
+    k_work_reschedule_for_queue(zmk_display_work_q(), &auto_cycle_work,
+                                K_MSEC(STAT_CYCLE_INTERVAL_MS));
+}
+
 // --- Split link icon: polling (central cannot subscribe to peripheral's status event;
 //     zmk_split_peripheral_status_changed is only raised in peripheral.c, never central.c).
 //     Poll the BLE transport's get_status() every 2s instead. ---
@@ -488,7 +515,11 @@ static void do_cycle(struct k_work *work) {
         load_demo_image(demo_images[demo_idx]);
         break;
     case DISPLAY_STATE_CUSTOM:
-        virtual_pet_cycle_stat();
+        typing_stats_cycle();
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+        k_work_reschedule_for_queue(zmk_display_work_q(), &auto_cycle_work,
+                                    K_MSEC(STAT_CYCLE_INTERVAL_MS));
+#endif
         break;
     default:
         break;
