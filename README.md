@@ -4,6 +4,12 @@ Personal ZMK firmware config for the [Kyria rev3](https://splitkb.com/kyria) wir
 
 ZMK is required for wireless split keyboard support on the Nice!Nano hardware.
 
+## Features
+
+- **Custom OLED display** — both halves show live keyboard status (layer, Bluetooth profile, battery %) rendered with a custom bitmap font and a set of inline icons
+- **Character count** — tracks keypresses per session with comma formatting and k/m/b suffixes for large numbers
+- **WPM estimate** — rolling 30-second window; idle time falls out naturally so it only reflects active typing; no keystroke content is stored. Formula: a "word" is counted each time a non-letter key follows a letter key (space, punctuation, Enter, etc.); `WPM = words_in_last_30s × 2`. This will read lower than a standard typing test if you type short words or use many special characters, and higher if you type long words with few separators. Window duration is configurable in `display_config.h`.
+
 ## Planned Uses
 
 - **Virtual pet** — a Tamagotchi-style creature living on the OLED displays, fed by keypresses
@@ -11,14 +17,16 @@ ZMK is required for wireless split keyboard support on the Nice!Nano hardware.
 
 ## Keyboard Layout
 
-![Kyria keyboard mapping legend](kyria_keyboard_mapping_legend.png)
+<img src="kyria_keyboard_mapping_legend.png" width="720">
 
-![Kyria keyboard mapping](kyria_keyboard_mapping.png)
+<img src="kyria_keyboard_mapping.png" width="720">
 
 
 ## Custom Display Module
 
 The firmware includes a custom Zephyr module (`display_module/`) that extends the OLED displays beyond ZMK's default widgets.
+
+<img src="display_right.jpg" width="350"> <img src="display_left.jpg" width="350">
 
 ### Display states
 
