@@ -246,7 +246,7 @@ static void ensure_initialized(void) {
     initialized = true;
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(500));
+    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(500)); /* first check after 500ms warmup */
 #endif
 
     if (IS_ENABLED(CONFIG_CUSTOM_DISPLAY_DEFAULT_ON)) {
@@ -278,7 +278,7 @@ static void submit_peripheral_display_init(struct k_work *work) {
 K_WORK_DELAYABLE_DEFINE(peripheral_display_delayed, submit_peripheral_display_init);
 
 static int peripheral_display_sys_init(const struct device *dev) {
-    k_work_schedule(&peripheral_display_delayed, K_MSEC(50));
+    k_work_schedule(&peripheral_display_delayed, K_MSEC(50)); /* wait for ZMK display thread before touching LVGL */
     return 0;
 }
 SYS_INIT(peripheral_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
@@ -325,7 +325,7 @@ static void set_display_state(display_state_t state) {
         break;
     case DISPLAY_STATE_CUSTOM:
         lv_scr_load(real_screen);
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) && (STAT_CYCLE_INTERVAL_MS > 0)
         k_work_reschedule_for_queue(zmk_display_work_q(), &auto_cycle_work,
                                     K_MSEC(STAT_CYCLE_INTERVAL_MS));
 #endif
@@ -339,8 +339,7 @@ static void set_display_state(display_state_t state) {
 }
 
 // ---------------------------------------------------------------------------
-// DATA CALLBACKS — Phase 2
-// Live ZMK state → layout widgets via event subscriptions.
+// DATA CALLBACKS — live ZMK state → layout widgets
 // All LVGL updates run on the display work queue.
 // ---------------------------------------------------------------------------
 
@@ -435,8 +434,10 @@ ZMK_SUBSCRIPTION(display_ble_listener, zmk_ble_active_profile_changed);
 static void do_auto_cycle(struct k_work *work) {
     if (current_state != DISPLAY_STATE_CUSTOM) return;
     typing_stats_cycle();
+#if STAT_CYCLE_INTERVAL_MS > 0
     k_work_reschedule_for_queue(zmk_display_work_q(), &auto_cycle_work,
                                 K_MSEC(STAT_CYCLE_INTERVAL_MS));
+#endif
 }
 
 // --- Split link icon: polling (central cannot subscribe to peripheral's status event;
@@ -462,7 +463,7 @@ static void do_poll_split_link(struct k_work *work) {
         lv_img_set_src(w_link_icon,
                        central_split_is_connected() ? &icon_link : &icon_link_broken);
     }
-    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(2000));
+    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(2000)); /* 2s poll — central can't subscribe to peripheral status events */
 }
 
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
@@ -515,7 +516,7 @@ static void do_cycle(struct k_work *work) {
         break;
     case DISPLAY_STATE_CUSTOM:
         typing_stats_cycle();
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) && (STAT_CYCLE_INTERVAL_MS > 0)
         k_work_reschedule_for_queue(zmk_display_work_q(), &auto_cycle_work,
                                     K_MSEC(STAT_CYCLE_INTERVAL_MS));
 #endif
