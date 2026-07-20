@@ -12,8 +12,9 @@ Usage:
   Sprite sheet with named frames (for animation):
     python3 convert_image.py sheet.png --sprite-w 16 --sprite-h 16 --names idle_0 idle_1 idle_2
 
-Output: C header file printed to stdout. Redirect to a .h file.
-  python3 convert_image.py image.png > src/my_image.h
+Output: saves <stem>.h alongside the source PNG.
+  python3 convert_image.py resources/pet/my_image.png
+  → writes resources/pet/my_image.h
 
 Options:
   --threshold N     Luminance threshold for white (0-255, default 128)
@@ -110,11 +111,13 @@ def main():
 
     img = Image.open(args.image)
     stem = Path(args.image).stem.lower().replace(' ', '_').replace('-', '_')
+    out_path = Path(args.image).with_suffix('.h')
 
-    print('#pragma once')
-    print('#include <lvgl.h>')
-    print(f'// Generated from {args.image} by tools/convert_image.py')
-    print()
+    lines = []
+    lines.append('#pragma once')
+    lines.append('#include <lvgl.h>')
+    lines.append(f'// Generated from {args.image} by tools/convert_image.py')
+    lines.append('')
 
     if args.sprite_w and args.sprite_h:
         sw, sh = args.sprite_w, args.sprite_h
@@ -133,19 +136,21 @@ def main():
                 box = (col * sw, row * sh, (col + 1) * sw, (row + 1) * sh)
                 sprite = img.crop(box)
                 data, w, h = image_to_lvgl_bytes(sprite, args.threshold, args.invert)
-                print(bytes_to_c_array(data, frame_names[index], w, h))
+                lines.append(bytes_to_c_array(data, frame_names[index], w, h))
                 index += 1
 
-        # Emit a const pointer array for easy animation use
-        print(f'// Animation frame array ({total} frames)')
+        lines.append(f'// Animation frame array ({total} frames)')
         ptrs = ', '.join(f'&{n}' for n in frame_names[:total])
-        print(f'static const lv_img_dsc_t *sprite_frames[] = {{ {ptrs} }};')
-        print(f'static const int sprite_frame_count = {total};')
+        lines.append(f'static const lv_img_dsc_t *sprite_frames[] = {{ {ptrs} }};')
+        lines.append(f'static const int sprite_frame_count = {total};')
 
     else:
         var_name = args.var or stem
         data, w, h = image_to_lvgl_bytes(img, args.threshold, args.invert)
-        print(bytes_to_c_array(data, var_name, w, h))
+        lines.append(bytes_to_c_array(data, var_name, w, h))
+
+    out_path.write_text('\n'.join(lines))
+    print(f'Saved: {out_path}', file=sys.stderr)
 
 
 if __name__ == '__main__':

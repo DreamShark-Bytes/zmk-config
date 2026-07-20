@@ -46,13 +46,13 @@ LOG_MODULE_REGISTER(typing_stats, CONFIG_ZMK_LOG_LEVEL);
 #define HID_KEY_MOD_LAST     0xE7u   /* Right GUI    — last modifier keycode    */
 
 typedef enum {
-    STAT_CHAR_COUNT = 0,
-    STAT_WPM,
+    STAT_WPM = 0,
+    STAT_CHAR_COUNT,
     STAT_COUNT,
 } stat_mode_t;
 
 static bool     stats_initialized  = false;
-static stat_mode_t stat_mode       = STAT_CHAR_COUNT;
+static stat_mode_t stat_mode       = STAT_WPM;
 static uint32_t char_count         = 0;
 static uint32_t word_count         = 0;
 static bool     prev_was_alpha     = false;
@@ -72,21 +72,23 @@ static void render_stat(void) {
             uint32_t n = char_count;
             if (n >= 1000000000u) {
                 uint32_t w = n / 1000000000u, r = n % 1000000000u;
-                if      (w >= 100) snprintf(buf, sizeof(buf), "%u.%ub",   w, r / 100000000u);
-                else if (w >= 10)  snprintf(buf, sizeof(buf), "%u.%02ub", w, r / 10000000u);
-                else               snprintf(buf, sizeof(buf), "%u.%03ub", w, r / 1000000u);
+                if      (w >= 100) snprintf(buf, sizeof(buf), "c %u.%ub",   w, r / 100000000u);
+                else if (w >= 10)  snprintf(buf, sizeof(buf), "c %u.%02ub", w, r / 10000000u);
+                else               snprintf(buf, sizeof(buf), "c %u.%03ub", w, r / 1000000u);
             } else if (n >= 1000000) {
                 uint32_t w = n / 1000000, r = n % 1000000;
-                if      (w >= 100) snprintf(buf, sizeof(buf), "%u.%um",   w, r / 100000);
-                else if (w >= 10)  snprintf(buf, sizeof(buf), "%u.%02um", w, r / 10000);
-                else               snprintf(buf, sizeof(buf), "%u.%03um", w, r / 1000);
+                if      (w >= 100) snprintf(buf, sizeof(buf), "c %u.%um",   w, r / 100000);
+                else if (w >= 10)  snprintf(buf, sizeof(buf), "c %u.%02um", w, r / 10000);
+                else               snprintf(buf, sizeof(buf), "c %u.%03um", w, r / 1000);
             } else if (n >= 100000) {
-                snprintf(buf, sizeof(buf), "%u.%uk", n / 1000, (n % 1000) / 100);
+                snprintf(buf, sizeof(buf), "c %u.%uk", n / 1000, (n % 1000) / 100);
+            } else if (n >= 1000) {
+                snprintf(buf, sizeof(buf), "c %u,%03u", n / 1000, n % 1000);
             } else {
-                snprintf(buf, sizeof(buf), "%u", (unsigned)n);
+                snprintf(buf, sizeof(buf), "c %u", (unsigned)n);
             }
-            lv_obj_clear_flag(w_status_icon, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_x(w_status_label, STATUS_LABEL_X_WITH_ICON);
+            lv_obj_add_flag(w_status_icon, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_x(w_status_label, STATUS_LABEL_X_NO_ICON);
             lv_label_set_text(w_status_label, buf);
             break;
         }

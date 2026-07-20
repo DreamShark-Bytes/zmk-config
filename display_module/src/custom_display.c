@@ -39,7 +39,8 @@
 #include "typing_stats.h"
 
 #include <stdio.h>
-#include "pet_temp_image.h"
+#include "pet_temp_image_1.h"
+#include "pet_temp_image_2.h"
 #include "icon_link.h"
 #include "icon_link_broken.h"
 #include "icon_bt.h"
@@ -97,9 +98,8 @@ static lv_obj_t *w_layer_colon   = NULL;
 static lv_obj_t *w_layer_name    = NULL;
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-static lv_obj_t *w_egg_img       = NULL;
-static int       egg_base_y      = PET_AREA_Y;
-static int       egg_bob_offset  = 0;
+static lv_obj_t *w_egg_img  = NULL;
+static int       egg_frame  = 0;
 #endif
 
 // ---------------------------------------------------------------------------
@@ -171,10 +171,9 @@ static void build_real_screen(void) {
     w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%",
                                -1 + 13 + ICON_TEXT_GAP, ROW_BATTERY_Y + LARGE_FONT_Y_OFFSET);
     w_egg_img = lv_img_create(real_screen);
-    lv_img_set_src(w_egg_img, &pet_temp_image);
+    lv_img_set_src(w_egg_img, &pet_temp_image_1);
     lv_obj_set_pos(w_egg_img, PET_AREA_X, PET_AREA_Y);
-    egg_base_y = PET_AREA_Y;
-    egg_bob_offset = 0;
+    egg_frame = 0;
     return;
 #endif
 
@@ -308,8 +307,8 @@ ZMK_SUBSCRIPTION(display_split_listener, zmk_split_peripheral_status_changed);
 // --- Egg bob animation ---
 static void do_egg_bob(struct k_work *work) {
     if (!initialized || !w_egg_img) return;
-    egg_bob_offset ^= 1;
-    lv_obj_set_y(w_egg_img, egg_base_y + egg_bob_offset);
+    egg_frame ^= 1;
+    lv_img_set_src(w_egg_img, egg_frame ? &pet_temp_image_2 : &pet_temp_image_1);
     k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
 }
 
