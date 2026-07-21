@@ -4,6 +4,10 @@ Personal ZMK firmware config for the [Kyria rev3](https://splitkb.com/kyria) wir
 
 ZMK is required for wireless split keyboard support on the Nice!Nano hardware.
 
+<p align="center">
+  <a href="https://ko-fi.com/dreamshark_bytes"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
+</p>
+
 ## Features
 
 - **Custom OLED display** — both halves show live keyboard status (layer, Bluetooth profile, battery %) rendered with a custom bitmap font and a set of inline icons
