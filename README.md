@@ -202,3 +202,14 @@ The module path in `build.yaml` is hardcoded to this machine. To build with GitH
 
 See [DESIGN.md](DESIGN.md) for settled decisions and technical architecture.
 See [PLANNED.md](PLANNED.md) for features in progress.
+
+## License
+
+MIT — see [LICENSE](LICENSE). You are free to use, modify, and distribute this config and the custom display module for any purpose, including commercial, as long as the copyright notice is retained.
+
+## Credits
+
+- **[ZMK Firmware](https://zmk.dev)** — the wireless keyboard firmware this config runs on. ZMK is MIT licensed; see their repository for full copyright and license details.
+- **[BadComic font](https://www.dafont.com/bad-comic.font)** — display font used on the OLEDs, distributed under the SIL Open Font License (OFL).
+- **[Splitkb Kyria rev3](https://splitkb.com/kyria)** — the keyboard hardware this config targets.
+- **Claude Code (Anthropic)** — assisted with implementation of the custom display module, typing stats, asset tooling, and documentation under directed oversight. All design decisions, requirements, and hardware validation are by the author.
