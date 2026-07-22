@@ -205,7 +205,8 @@ See [PLANNED.md](PLANNED.md) for features in progress.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). You are free to use, modify, and distribute this config and the custom display module for any purpose, including commercial, as long as the copyright notice is retained.
+MIT — see [LICENSE](LICENSE). You are free to use, modify, and distribute this config and the custom display module for any purpose, including commercial, as long as the copyright notice is retained. 
+All art assets (icons, sprites, and other original graphics in `resources/`) are original works by the author and are also released under the MIT license.
 
 ## Credits
 

@@ -466,6 +466,24 @@ static void do_poll_split_link(struct k_work *work) {
     k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(2000)); /* 2s poll — central can't subscribe to peripheral status events */
 }
 
+#if IS_ENABLED(CONFIG_CUSTOM_DISPLAY_DEFAULT_ON)
+static void do_central_display_init(struct k_work *work) {
+    ensure_initialized();
+}
+K_WORK_DEFINE(central_display_work, do_central_display_init);
+
+static void submit_central_display_init(struct k_work *work) {
+    k_work_submit_to_queue(zmk_display_work_q(), &central_display_work);
+}
+K_WORK_DELAYABLE_DEFINE(central_display_delayed, submit_central_display_init);
+
+static int central_display_sys_init(const struct device *dev) {
+    k_work_schedule(&central_display_delayed, K_MSEC(50));
+    return 0;
+}
+SYS_INIT(central_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+#endif /* IS_ENABLED(CONFIG_CUSTOM_DISPLAY_DEFAULT_ON) */
+
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
 // ---------------------------------------------------------------------------
