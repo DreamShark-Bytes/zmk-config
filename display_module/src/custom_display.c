@@ -264,26 +264,6 @@ static void ensure_initialized(void) {
 // ---------------------------------------------------------------------------
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 
-static void do_peripheral_display_init(struct k_work *work) {
-    ensure_initialized();
-    lv_scr_load(real_screen);
-    current_state = DISPLAY_STATE_CUSTOM;
-    k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
-    k_work_submit_to_queue(zmk_display_work_q(), &update_split_link_work);
-}
-K_WORK_DEFINE(peripheral_display_work, do_peripheral_display_init);
-
-static void submit_peripheral_display_init(struct k_work *work) {
-    k_work_submit_to_queue(zmk_display_work_q(), &peripheral_display_work);
-}
-K_WORK_DELAYABLE_DEFINE(peripheral_display_delayed, submit_peripheral_display_init);
-
-static int peripheral_display_sys_init(const struct device *dev) {
-    k_work_schedule(&peripheral_display_delayed, K_MSEC(50)); /* wait for ZMK display thread before touching LVGL */
-    return 0;
-}
-SYS_INIT(peripheral_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
-
 // --- Split link icon: live connection status ---
 static bool pending_split_connected = false;
 
@@ -304,6 +284,26 @@ static int split_status_event_cb(const zmk_event_t *eh) {
 }
 ZMK_LISTENER(display_split_listener, split_status_event_cb);
 ZMK_SUBSCRIPTION(display_split_listener, zmk_split_peripheral_status_changed);
+
+static void do_peripheral_display_init(struct k_work *work) {
+    ensure_initialized();
+    lv_scr_load(real_screen);
+    current_state = DISPLAY_STATE_CUSTOM;
+    k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
+    k_work_submit_to_queue(zmk_display_work_q(), &update_split_link_work);
+}
+K_WORK_DEFINE(peripheral_display_work, do_peripheral_display_init);
+
+static void submit_peripheral_display_init(struct k_work *work) {
+    k_work_submit_to_queue(zmk_display_work_q(), &peripheral_display_work);
+}
+K_WORK_DELAYABLE_DEFINE(peripheral_display_delayed, submit_peripheral_display_init);
+
+static int peripheral_display_sys_init(const struct device *dev) {
+    k_work_schedule(&peripheral_display_delayed, K_MSEC(50)); /* wait for ZMK display thread before touching LVGL */
+    return 0;
+}
+SYS_INIT(peripheral_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
 
 // --- Egg bob animation ---
 static void do_egg_bob(struct k_work *work) {

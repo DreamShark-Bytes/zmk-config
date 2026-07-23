@@ -61,7 +61,6 @@ typedef enum {
 static bool        stats_initialized = false;
 static stat_mode_t stat_mode         = STAT_WPM;
 static uint32_t    char_count        = 0;
-static bool        prev_was_alpha    = false;
 
 /* word_timestamps: ms-since-boot of each word completion (ring buffer). */
 static int64_t  word_timestamps[ROLLING_WORD_CAPACITY];
@@ -158,6 +157,8 @@ void typing_stats_cycle(void) {
 
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
+
+static bool prev_was_alpha = false;
 
 static void do_update_stat(struct k_work *work) {
     if (!stats_initialized) return;
