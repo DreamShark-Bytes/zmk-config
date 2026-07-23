@@ -23,7 +23,7 @@ ZMK is required for wireless split keyboard support on the Nice!Nano hardware.
 
 <img src="kyria_keyboard_mapping_legend.png" width="720">
 
-<img src="kyria_keyboard_mapping.png" width="720">
+<img src="kyria_keyboard_mapping.jpeg" width="720">
 
 
 ## Custom Display Module

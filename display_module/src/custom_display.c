@@ -269,6 +269,7 @@ static void do_peripheral_display_init(struct k_work *work) {
     lv_scr_load(real_screen);
     current_state = DISPLAY_STATE_CUSTOM;
     k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
+    k_work_submit_to_queue(zmk_display_work_q(), &update_split_link_work);
 }
 K_WORK_DEFINE(peripheral_display_work, do_peripheral_display_init);
 
