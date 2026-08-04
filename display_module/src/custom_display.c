@@ -44,6 +44,7 @@
 #include "icon_link.h"
 #include "icon_link_broken.h"
 #include "icon_bt.h"
+#include "icon_bt_broken.h"
 #include "icon_check.h"
 #include "icon_x.h"
 #include "icon_battery.h"
@@ -418,6 +419,7 @@ static void do_update_bt(struct k_work *work) {
     if (!initialized) return;
     char buf[2] = { '1' + pending_bt_profile, '\0' };
     lv_label_set_text(w_bt_profile, buf);
+    lv_img_set_src(w_bt_icon, pending_bt_connected ? &icon_bt : &icon_bt_broken);
     lv_img_set_src(w_bt_conn_icon, pending_bt_connected ? &icon_check : &icon_x);
 }
 K_WORK_DEFINE(update_bt_work, do_update_bt);
