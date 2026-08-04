@@ -45,8 +45,6 @@
 #include "icon_link_broken.h"
 #include "icon_bt.h"
 #include "icon_bt_broken.h"
-#include "icon_check.h"
-#include "icon_x.h"
 #include "icon_battery.h"
 #include "icon_lightning.h"
 #include "icon_os_mac.h"
@@ -90,7 +88,6 @@ static int demo_idx = 0;
 static lv_obj_t *w_link_icon     = NULL;
 static lv_obj_t *w_bt_icon       = NULL;
 static lv_obj_t *w_bt_profile    = NULL;
-static lv_obj_t *w_bt_conn_icon  = NULL;
 static lv_obj_t *w_battery_icon  = NULL;
 static lv_obj_t *w_battery_pct   = NULL;
 static lv_obj_t *w_os_icon       = NULL;
@@ -184,8 +181,6 @@ static void build_real_screen(void) {
     w_bt_icon = make_img(real_screen, &icon_bt, x, ROW_TOP_Y);
     x += 13 + ICON_TEXT_GAP;
     w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y + LARGE_FONT_Y_OFFSET);
-    x += 9 + ICON_TEXT_GAP;
-    w_bt_conn_icon = make_img(real_screen, &icon_check, x, ROW_TOP_Y);
 
     x = -1;
     w_battery_icon = make_img(real_screen, &icon_battery, x, ROW_BATTERY_Y);
@@ -420,7 +415,6 @@ static void do_update_bt(struct k_work *work) {
     char buf[2] = { '1' + pending_bt_profile, '\0' };
     lv_label_set_text(w_bt_profile, buf);
     lv_img_set_src(w_bt_icon, pending_bt_connected ? &icon_bt : &icon_bt_broken);
-    lv_img_set_src(w_bt_conn_icon, pending_bt_connected ? &icon_check : &icon_x);
 }
 K_WORK_DEFINE(update_bt_work, do_update_bt);
 
