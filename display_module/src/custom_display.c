@@ -178,7 +178,7 @@ static void build_real_screen(void) {
     int x = -1;
     w_link_icon = make_img(real_screen, &icon_link_broken, x, ROW_TOP_Y);
     x = -1 + 13 + ICON_TEXT_GAP;
-    w_bt_icon = make_img(real_screen, &icon_bt, x, ROW_TOP_Y);
+    w_bt_icon = make_img(real_screen, &icon_bt_broken, x, ROW_TOP_Y);
     x += 13 + ICON_TEXT_GAP;
     w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y + LARGE_FONT_Y_OFFSET);
 
