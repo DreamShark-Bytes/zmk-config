@@ -219,6 +219,7 @@ Pet state will track on the central and sync to the peripheral via BLE split tra
 | `&skq` | `zmk,behavior-sticky-key` | Sticky shift with quick-release (releases on key-down, not key-up) | Defined in `config/kyria_rev3.keymap` behaviors block |
 | `&display_toggle` | `zmk,behavior-display-toggle` | Cycles through three display states: STOCK → CUSTOM → DEMO → STOCK | C driver in `display_module/src/custom_display.c`; DTS binding in `display_module/dts/bindings/zmk,behavior-display-toggle.yaml` |
 | `&demo_cycle` | `zmk,behavior-demo-cycle` | Advance demo images; **no-op unless currently in DEMO state** | Thin driver in `display_module/src/demo_cycle.c`; logic in `custom_display.c` via `demo_cycle_trigger()` |
+| `&bt_switch 0` / `&bt_switch 1` | `zmk,behavior-bt-switch` | Switch BT profile (0 = next, 1 = prev) while disconnecting all active host connections first — ensures the departing device loses its BLE connection and its virtual keyboard reappears | `display_module/src/behavior_bt_switch.c`; DTS binding in `display_module/dts/bindings/zmk,behavior-bt-switch.yaml` |
 
 ### Display states
 
@@ -274,3 +275,4 @@ Pet state will track on the central and sync to the peripheral via BLE split tra
 | 2026-07-18 | Auto-cycle timer in custom_display.c, not typing_stats.c | Cycling is a display coordination concern; typing_stats only owns data and rendering |
 | 2026-07-18 | Right half shows bobbing egg (pet_temp_image) at PET_AREA position | Placeholder that teases the virtual pet feature; link icon and battery remain in the left column of the right display |
 | 2026-07-18 | Branch feature/virtual-pet after merge to main, not before | Branching before decoupling creates desync — pet branch would inherit coupled char counter; branching after gives it typing_stats.c as a ready prerequisite |
+| 2026-08-06 | Custom `&bt_switch` behavior replaces `&bt BT_NXT` / `&bt BT_PRV` | ZMK maintains BLE connections to all bonded hosts simultaneously; only one receives input. The departed host (e.g. iPad) still sees the keyboard as connected and hides its virtual keyboard. `bt_switch` loops over all profile slots and calls `zmk_ble_prof_disconnect()` on each before selecting the next/prev profile. Disconnecting an unconnected slot is a safe no-op. This matches how standard BT keyboards behave: one connection at a time. |
