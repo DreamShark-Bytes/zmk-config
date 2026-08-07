@@ -1,0 +1,11 @@
+# Copyright (c) 2024 DreamShark-Bytes
+# SPDX-License-Identifier: MIT
+
+description: >
+  Clear the current BT profile bond and reset its stored base layer to the
+  default. Replaces &bt BT_CLR so profile clears stay consistent with
+  per-profile layer memory.
+
+compatible: "zmk,behavior-bt-clear"
+
+include: zero_param.yaml

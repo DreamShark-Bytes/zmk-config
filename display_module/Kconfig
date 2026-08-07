@@ -8,3 +8,23 @@ config CUSTOM_DISPLAY_DEFAULT_ON
     bool "Start with custom display active on boot"
     depends on CUSTOM_DISPLAY
     default n
+
+config BT_SWITCH_PERSIST_BASE_LAYER
+    bool "Persist per-profile base layer across power cycles"
+    depends on CUSTOM_DISPLAY
+    select SETTINGS
+    default n
+    help
+      When enabled, the active base layer for each BT profile is saved to NVS
+      via Zephyr's settings subsystem and restored on boot. Requires base-layers
+      to be set on the bt_switch behavior node in the keymap.
+
+config BT_SWITCH_PERSIST_ACTIVE_PROFILE
+    bool "Restore last active BT profile on boot"
+    depends on CUSTOM_DISPLAY
+    select SETTINGS
+    default n
+    help
+      When enabled, the last active BT profile index is saved to NVS and
+      restored on boot, so the keyboard reconnects to the same device it was
+      paired with before powering off.

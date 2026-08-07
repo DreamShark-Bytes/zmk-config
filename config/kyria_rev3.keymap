@@ -51,6 +51,12 @@
         bt_switch: bt_switch {
             compatible = "zmk,behavior-bt-switch";
             #binding-cells = <1>;
+            base-layers = <WINDOWS_L MAC_L>;
+        };
+
+        bt_clear: bt_clear {
+            compatible = "zmk,behavior-bt-clear";
+            #binding-cells = <0>;
         };
 
         skq: sticky_key_quick_release {
@@ -145,12 +151,12 @@
         function_layer {
             // ---------------------------------------------------------------------------------------------------------------------------------
             // |       |  F1  |   F2   |   F3   |    F4   |   F5   |                                                 |  F6  |   F7    |  F8  |   F9  | F10  | F11  |
-            // |       |BT_CLR| BT_PRV | BT_NXT | MAC_TOG |   Z    |                                                 |  Z   |         |      |       |      | F12  | (BT_PRV/NXT use bt_switch: disconnects all hosts before switching)
+            // |       |bt_clr| BT_PRV | BT_NXT | MAC_TOG |   Z    |                                                 |  Z   |         |      |       |      | F12  | (bt_clear/bt_switch: disconnect all hosts + restore saved OS layer)
             // |       |INSERT| NUMLCK | PSCRN  | D_cycle |  DISP  |      |      |                    |      |       | DISP | D_cycle |      |       |      | CAPS |
             //                         |        |         |        |      | CAPS |                    |      |       |      |         |      |
             bindings = <
             &trans &kp F1     &kp F2      &kp F3      &kp F4      &kp F5                                                       &kp F6           &kp F7      &kp F8 &kp F9 &kp F10  &kp F11
-            &trans &bt BT_CLR &bt_switch 1  &bt_switch 0  &tog MAC_L  &kp Z                                                        &kp Z            &trans      &trans &trans &trans   &kp F12
+            &trans &bt_clear  &bt_switch 1  &bt_switch 0  &tog MAC_L  &kp Z                                                        &kp Z            &trans      &trans &trans &trans   &kp F12
             &trans &kp INSERT &kp KP_NUM  &kp PSCRN   &cycle      &display_toggle &trans &trans               &trans   &trans  &display_toggle  &cycle      &trans &trans &trans   &kp CAPS 
                                           &trans      &trans      &trans          &trans &kp CAPS             &trans   &trans  &trans           &trans      &trans
             >;

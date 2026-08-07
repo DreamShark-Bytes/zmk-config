@@ -1,8 +1,21 @@
 # Copyright (c) 2024 DreamShark-Bytes
 # SPDX-License-Identifier: MIT
 
-description: Switch BT profile while disconnecting all active host connections first
+description: >
+  Switch BT profile while disconnecting all active host connections first.
+  Optionally restores the remembered base layer (e.g. Windows vs Mac) for
+  the destination profile.
 
 compatible: "zmk,behavior-bt-switch"
 
 include: one_param.yaml
+
+properties:
+  base-layers:
+    type: array
+    required: false
+    description: >
+      Ordered list of mutually exclusive OS/layout layer indices. The first
+      entry is the always-on bottom layer (e.g. WINDOWS_L = 0); remaining
+      entries are toggled on or off when switching profiles. Omit this
+      property to disable per-profile layer tracking entirely.
