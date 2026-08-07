@@ -12,13 +12,12 @@
  *       base-layers = <WINDOWS_L MAC_L>;
  *   };
  *
- * Omit `base-layers` entirely to disable per-profile layer tracking (behavior
- * acts as a simple "disconnect all + switch" operation).
+ * Base-layer tracking is enabled by CONFIG_BT_SWITCH_PERSIST_BASE_LAYER=y.
+ * When enabled, `base-layers` MUST be present on the behavior node.
+ * NVS persistence is also provided by that flag via Zephyr's settings subsystem.
  *
- * Per-profile memory is in RAM (resets on power cycle). Enable NVS persistence
- * in kyria_rev3.conf:
- *   CONFIG_BT_SWITCH_PERSIST_BASE_LAYER=y      — persist per-profile base layer
- *   CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE=y  — restore last BT profile on boot
+ * Restore the last active BT profile on boot with:
+ *   CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE=y
  *
  * param1: 0 = next profile, 1 = previous profile
  */
@@ -48,7 +47,7 @@
 #define BT_SWITCH_NEXT 0
 #define BT_SWITCH_PREV 1
 
-/* ---- Settings save (defined early so later code can call it) ---- */
+/* ---- Settings save work (defined first; referenced by later code) ---- */
 
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER) || \
     IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
@@ -68,9 +67,15 @@ static void bt_switch_schedule_save(void) {
 static uint8_t saved_active_profile = 0;
 #endif
 
-/* ---- Base layer configuration (from DT) ---- */
+/* ---- Base layer configuration ---- */
+/*
+ * Gated by CONFIG_BT_SWITCH_PERSIST_BASE_LAYER rather than a DT_INST_HAS_PROP
+ * check, because Zephyr DT macros (which use IS_ENABLED internally) cannot be
+ * evaluated inside #if preprocessor directives. When this Kconfig is enabled,
+ * the base-layers DT property MUST be present on the bt_switch behavior node.
+ */
 
-#if DT_INST_HAS_PROP(0, base_layers)
+#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
 
 #define BT_SWITCH_BASE_LAYER_ENTRY(node_id, prop, idx) DT_PROP_BY_IDX(node_id, prop, idx),
 static const uint8_t base_layers[] = {
@@ -84,9 +89,9 @@ static uint8_t profile_base_layer[ZMK_BLE_PROFILE_COUNT] = {0};
 /* Activate the stored base layer for `profile`, deactivate all others in the set.
  *
  * base_layers[0] is the always-on bottom layer (e.g. WINDOWS_L). Deactivating it
- * would break &trans fallthrough, so we only toggle indices 1 and above. When the
- * stored index is 0, all non-default layers are deactivated and the bottom layer
- * remains active by default. */
+ * would break &trans fallthrough, so only indices 1+ are toggled. When stored
+ * index is 0, all non-default layers are deactivated and the bottom layer stays
+ * active by default. */
 static void apply_base_layer(int profile) {
     uint8_t stored_idx = profile_base_layer[profile];
     if (stored_idx >= BASE_LAYER_COUNT) {
@@ -101,19 +106,17 @@ static void apply_base_layer(int profile) {
     }
 }
 
-#endif /* DT_INST_HAS_PROP(0, base_layers) */
+#endif /* CONFIG_BT_SWITCH_PERSIST_BASE_LAYER */
 
 /* ---- Reset entry point (called by bt_clear behavior) ---- */
 
 void bt_switch_reset_profile_layer(int profile) {
-#if DT_INST_HAS_PROP(0, base_layers)
+#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     if (profile < 0 || profile >= ZMK_BLE_PROFILE_COUNT) {
         return;
     }
     profile_base_layer[profile] = 0;
-#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     bt_switch_schedule_save();
-#endif
 #endif
 }
 
@@ -123,7 +126,7 @@ void bt_switch_reset_profile_layer(int profile) {
     IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
 
 static void do_settings_save(struct k_work *work) {
-#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER) && DT_INST_HAS_PROP(0, base_layers)
+#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     settings_save_one("bt_layer/profile_layers",
                       profile_base_layer, sizeof(profile_base_layer));
 #endif
@@ -135,7 +138,7 @@ static void do_settings_save(struct k_work *work) {
 
 static int bt_layer_settings_set(const char *name, size_t len,
                                   settings_read_cb read_cb, void *cb_arg) {
-#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER) && DT_INST_HAS_PROP(0, base_layers)
+#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     if (strcmp(name, "profile_layers") == 0) {
         read_cb(cb_arg, profile_base_layer,
                 MIN(len, sizeof(profile_base_layer)));
@@ -162,7 +165,7 @@ static int bt_layer_settings_init(void) {
         zmk_ble_prof_select(saved_active_profile);
     }
 #endif
-#if DT_INST_HAS_PROP(0, base_layers)
+#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     apply_base_layer(zmk_ble_active_profile_index());
 #endif
     return 0;
@@ -188,11 +191,11 @@ ZMK_SUBSCRIPTION(bt_switch_profile_listener, zmk_ble_active_profile_changed);
 
 /* ---- Layer tracking listener ---- */
 
-#if DT_INST_HAS_PROP(0, base_layers)
+#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
 
 static int bt_switch_layer_event_cb(const zmk_event_t *eh) {
     int active_profile = zmk_ble_active_profile_index();
-    /* Walk indices 1+; if none is active, the stored index stays 0 (default). */
+    /* Walk indices 1+; if none is active, stored index stays 0 (default). */
     uint8_t new_idx = 0;
     for (int i = 1; i < BASE_LAYER_COUNT; i++) {
         if (zmk_keymap_layer_active(base_layers[i])) {
@@ -201,15 +204,13 @@ static int bt_switch_layer_event_cb(const zmk_event_t *eh) {
         }
     }
     profile_base_layer[active_profile] = new_idx;
-#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     bt_switch_schedule_save();
-#endif
     return ZMK_EV_EVENT_BUBBLE;
 }
 ZMK_LISTENER(bt_switch_layer_listener, bt_switch_layer_event_cb);
 ZMK_SUBSCRIPTION(bt_switch_layer_listener, zmk_layer_state_changed);
 
-#endif /* DT_INST_HAS_PROP(0, base_layers) */
+#endif /* CONFIG_BT_SWITCH_PERSIST_BASE_LAYER */
 
 /* ---- Behavior ---- */
 
@@ -225,7 +226,7 @@ static int on_binding_pressed(struct zmk_behavior_binding *binding,
         zmk_ble_prof_next();
     }
 
-#if DT_INST_HAS_PROP(0, base_layers)
+#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     apply_base_layer(zmk_ble_active_profile_index());
 #endif
     return ZMK_BEHAVIOR_OPAQUE;

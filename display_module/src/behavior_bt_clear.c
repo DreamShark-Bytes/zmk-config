@@ -23,7 +23,7 @@ static int on_binding_pressed(struct zmk_behavior_binding *binding,
     int profile = zmk_ble_active_profile_index();
     bt_switch_reset_profile_layer(profile);
     zmk_ble_prof_disconnect(profile);
-    zmk_ble_clear();
+    zmk_ble_clear_bonds();
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
