@@ -139,27 +139,27 @@ static int bt_layer_settings_set(const char *name, size_t len,
 SETTINGS_STATIC_HANDLER_DEFINE(bt_layer, "bt_layer", NULL,
                                 bt_layer_settings_set, NULL, NULL);
 
-static int bt_layer_settings_init(void) {
-    settings_load_subtree("bt_layer");
+static void do_boot_restore(struct k_work *work) {
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
-    if (saved_active_profile < ZMK_BLE_PROFILE_COUNT) {
-        /* zmk_ble_prof_select() is not in ZMK v0.3 — walk via prof_next(). */
-        uint8_t current = zmk_ble_active_profile_index();
-        int steps = 0;
-        while (current != saved_active_profile &&
-               steps < ZMK_BLE_PROFILE_COUNT) {
-            zmk_ble_prof_next();
-            current = zmk_ble_active_profile_index();
-            steps++;
-        }
+    if (saved_active_profile < ZMK_BLE_PROFILE_COUNT &&
+        zmk_ble_active_profile_index() != (int)saved_active_profile) {
+        zmk_ble_prof_select(saved_active_profile);
     }
 #endif
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     apply_base_layer(zmk_ble_active_profile_index());
 #endif
+}
+static K_WORK_DELAYABLE_DEFINE(boot_restore_work, do_boot_restore);
+
+static int bt_layer_settings_init(void) {
+    settings_load_subtree("bt_layer");
+    /* Boot restore runs 100ms later via work queue — after settings_load() and
+     * zmk_ble_complete_startup() have both completed in main(). */
+    k_work_reschedule(&boot_restore_work, K_MSEC(100));
     return 0;
 }
-/* Priority 98: after ZMK BLE init (~90) and Zephyr settings subsystem init (~95). */
+/* Priority 98: loads our NVS data only. All BLE calls deferred to do_boot_restore. */
 SYS_INIT(bt_layer_settings_init, APPLICATION, 98);
 
 #endif /* PERSIST_BASE_LAYER || PERSIST_ACTIVE_PROFILE */
