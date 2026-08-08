@@ -224,15 +224,16 @@ void bt_switch_reset_profile_layer(int profile) {
 static int on_binding_pressed(struct zmk_behavior_binding *binding,
                                struct zmk_behavior_binding_event event) {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    /* Disconnect the departing profile BEFORE switching.
+    /* Disconnect all bonded profiles before switching.
      *
-     * zmk_ble_prof_disconnect() only reliably terminates the BLE link while the
-     * profile is still the active input target. Calling it after the switch leaves
-     * the departing device's connection intact — iOS/iPadOS in particular will not
-     * release its virtual keyboard unless the keyboard side initiates the disconnect
-     * while that profile is active. The target profile is background-connected and
-     * stays connected through the switch; no reconnect needed. */
-    zmk_ble_prof_disconnect(zmk_ble_active_profile_index());
+     * Empirically confirmed: calling disconnect for each profile slot in sequence
+     * reliably terminates active BLE links (including iOS/iPadOS) so the departing
+     * device's virtual keyboard reappears. Targeted single-profile disconnect (any
+     * ordering) did not reliably disconnect iOS in hardware testing — root cause
+     * unknown without USB logging. Disconnecting an unconnected slot is a no-op. */
+    for (int i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
+        zmk_ble_prof_disconnect(i);
+    }
 
     if (binding->param1 == BT_SWITCH_PREV) {
         zmk_ble_prof_prev();
