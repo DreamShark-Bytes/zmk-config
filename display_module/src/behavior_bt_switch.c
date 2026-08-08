@@ -139,6 +139,7 @@ static int bt_layer_settings_set(const char *name, size_t len,
 static void do_boot_restore(struct k_work *work) {
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
     if (saved_active_profile < ZMK_BLE_PROFILE_COUNT &&
+        !zmk_ble_profile_is_open(saved_active_profile) &&
         zmk_ble_active_profile_index() != (int)saved_active_profile) {
         zmk_ble_prof_select(saved_active_profile);
     }
