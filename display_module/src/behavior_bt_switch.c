@@ -108,14 +108,12 @@ static void apply_base_layer(int profile) {
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER) || \
     IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
 
+/* Debounced save — used only for base layer (can change quickly on rapid toggles).
+ * Active profile is saved immediately in its own event callback. */
 static void do_settings_save(struct k_work *work) {
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     settings_save_one("bt_layer/profile_layers",
                       profile_base_layer, sizeof(profile_base_layer));
-#endif
-#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
-    settings_save_one("bt_layer/active_profile",
-                      &saved_active_profile, sizeof(saved_active_profile));
 #endif
 }
 
@@ -172,7 +170,10 @@ SYS_INIT(bt_layer_settings_init, APPLICATION, 98);
 
 static int bt_switch_ble_profile_event_cb(const zmk_event_t *eh) {
     saved_active_profile = zmk_ble_active_profile_index();
-    bt_switch_schedule_save();
+    /* Save immediately — profile switches are rare (1-byte write) and a
+     * debounced save risks losing the update if the keyboard sleeps first. */
+    settings_save_one("bt_layer/active_profile",
+                      &saved_active_profile, sizeof(saved_active_profile));
     return ZMK_EV_EVENT_BUBBLE;
 }
 ZMK_LISTENER(bt_switch_profile_listener, bt_switch_ble_profile_event_cb);
@@ -223,18 +224,25 @@ void bt_switch_reset_profile_layer(int profile) {
 static int on_binding_pressed(struct zmk_behavior_binding *binding,
                                struct zmk_behavior_binding_event event) {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    for (int i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
-        zmk_ble_prof_disconnect(i);
-    }
-
+    /* Switch first so we know the target profile index without reimplementing
+     * ZMK's own wrapping logic. */
     if (binding->param1 == BT_SWITCH_PREV) {
         zmk_ble_prof_prev();
     } else {
         zmk_ble_prof_next();
     }
 
+    /* Disconnect only non-target profiles so departing devices properly release
+     * their virtual keyboards. The target stays connected — no reconnect delay. */
+    int new_profile = zmk_ble_active_profile_index();
+    for (int i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
+        if (i != new_profile) {
+            zmk_ble_prof_disconnect(i);
+        }
+    }
+
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
-    apply_base_layer(zmk_ble_active_profile_index());
+    apply_base_layer(new_profile);
 #endif
 #endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
     return ZMK_BEHAVIOR_OPAQUE;

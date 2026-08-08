@@ -78,6 +78,40 @@ display_module/src/
 
 ## Usage Guide
 
+### Bluetooth profile switching
+
+`&bt_switch 0` (next profile) and `&bt_switch 1` (previous profile) replace ZMK's built-in `&bt BT_NXT` / `&bt BT_PRV`. When you switch profiles, only the non-target profiles are disconnected — the target device stays connected for a seamless handoff. Departing devices receive a proper BLE disconnect so their virtual keyboards reappear.
+
+`&bt_clear` replaces `&bt BT_CLR`. It clears the current profile's bond and resets its stored OS layer.
+
+#### Per-profile OS layer memory
+
+Each BT profile remembers which base layer (Windows or Mac) was active when you last used it. Switching profiles automatically restores the remembered layer. Configure in `config/kyria_rev3.conf`:
+
+```
+# Persist the remembered base layer (Windows/Mac) for each BT profile to NVS.
+# Requires base-layers to be set on the bt_switch behavior node in the keymap.
+CONFIG_BT_SWITCH_PERSIST_BASE_LAYER=y
+
+# Restore the last active BT profile on boot, so the keyboard reconnects to
+# whichever device you were using before powering off.
+CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE=y
+```
+
+To change which layers are tracked as OS/layout defaults, edit the `base-layers` property on the `bt_switch` behavior node in `config/kyria_rev3.keymap`:
+
+```c
+bt_switch: bt_switch {
+    compatible = "zmk,behavior-bt-switch";
+    #binding-cells = <1>;
+    base-layers = <WINDOWS_L MAC_L>;  // first entry is always-on default; omit to disable tracking
+};
+```
+
+Both options default to `n`. With both enabled, the full boot sequence is: load saved profile → restore OS layer → start connecting.
+
+---
+
 ### Renaming layers on the display
 
 Layer names shown on the OLED are defined as a compile-time array in `display_module/src/display_config.h`. The index in the array matches the `#define` layer number at the top of `config/kyria_rev3.keymap`.
