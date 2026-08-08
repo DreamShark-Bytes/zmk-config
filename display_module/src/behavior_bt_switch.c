@@ -2,22 +2,14 @@
  * bt_switch behavior — disconnect all host profiles, switch to next/prev, then
  * restore the remembered base layer for the new profile.
  *
- * Base layers are a mutually exclusive set of OS/layout layers (e.g. WINDOWS_L
- * and MAC_L). Exactly one is considered "active" as the default at any time.
- * Configure the set via the `base-layers` DT property on the behavior node:
+ * All BLE and keymap logic is central-only (guarded by CONFIG_ZMK_SPLIT_ROLE_CENTRAL).
+ * On the peripheral half the behavior compiles but pressing the key is a no-op,
+ * which is correct — the peripheral only scans hardware and forwards raw keycodes.
  *
- *   bt_switch: bt_switch {
- *       compatible = "zmk,behavior-bt-switch";
- *       #binding-cells = <1>;
- *       base-layers = <WINDOWS_L MAC_L>;
- *   };
- *
- * Base-layer tracking is enabled by CONFIG_BT_SWITCH_PERSIST_BASE_LAYER=y.
- * When enabled, `base-layers` MUST be present on the behavior node.
- * NVS persistence is also provided by that flag via Zephyr's settings subsystem.
- *
- * Restore the last active BT profile on boot with:
- *   CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE=y
+ * Base-layer tracking and NVS persistence are enabled by Kconfig:
+ *   CONFIG_BT_SWITCH_PERSIST_BASE_LAYER=y   — track per-profile OS layer; requires
+ *                                             base-layers DT property on behavior node
+ *   CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE=y — restore last BT profile on boot
  *
  * param1: 0 = next profile, 1 = previous profile
  */
@@ -28,6 +20,9 @@
 #include <zephyr/kernel.h>
 #include <drivers/behavior.h>
 #include <zmk/behavior.h>
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
 #include <zmk/ble.h>
 #include <zmk/keymap.h>
 #include <zmk/event_manager.h>
@@ -42,12 +37,18 @@
 #include <zmk/events/ble_active_profile_changed.h>
 #endif
 
+#endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
+
 #include "behavior_bt_switch.h"
 
 #define BT_SWITCH_NEXT 0
 #define BT_SWITCH_PREV 1
 
-/* ---- Settings save work (defined first; referenced by later code) ---- */
+/* ---- All central-only implementation ---- */
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+/* ---- Settings save work ---- */
 
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER) || \
     IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
@@ -68,12 +69,6 @@ static uint8_t saved_active_profile = 0;
 #endif
 
 /* ---- Base layer configuration ---- */
-/*
- * Gated by CONFIG_BT_SWITCH_PERSIST_BASE_LAYER rather than a DT_INST_HAS_PROP
- * check, because Zephyr DT macros (which use IS_ENABLED internally) cannot be
- * evaluated inside #if preprocessor directives. When this Kconfig is enabled,
- * the base-layers DT property MUST be present on the bt_switch behavior node.
- */
 
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
 
@@ -107,18 +102,6 @@ static void apply_base_layer(int profile) {
 }
 
 #endif /* CONFIG_BT_SWITCH_PERSIST_BASE_LAYER */
-
-/* ---- Reset entry point (called by bt_clear behavior) ---- */
-
-void bt_switch_reset_profile_layer(int profile) {
-#if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
-    if (profile < 0 || profile >= ZMK_BLE_PROFILE_COUNT) {
-        return;
-    }
-    profile_base_layer[profile] = 0;
-    bt_switch_schedule_save();
-#endif
-}
 
 /* ---- NVS / Settings ---- */
 
@@ -162,7 +145,15 @@ static int bt_layer_settings_init(void) {
     settings_load_subtree("bt_layer");
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
     if (saved_active_profile < ZMK_BLE_PROFILE_COUNT) {
-        zmk_ble_prof_select(saved_active_profile);
+        /* zmk_ble_prof_select() is not in ZMK v0.3 — walk via prof_next(). */
+        uint8_t current = zmk_ble_active_profile_index();
+        int steps = 0;
+        while (current != saved_active_profile &&
+               steps < ZMK_BLE_PROFILE_COUNT) {
+            zmk_ble_prof_next();
+            current = zmk_ble_active_profile_index();
+            steps++;
+        }
     }
 #endif
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
@@ -212,10 +203,26 @@ ZMK_SUBSCRIPTION(bt_switch_layer_listener, zmk_layer_state_changed);
 
 #endif /* CONFIG_BT_SWITCH_PERSIST_BASE_LAYER */
 
+#endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
+
+/* ---- Reset entry point (called by bt_clear; no-op on peripheral) ---- */
+
+void bt_switch_reset_profile_layer(int profile) {
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) && \
+    IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
+    if (profile < 0 || profile >= ZMK_BLE_PROFILE_COUNT) {
+        return;
+    }
+    profile_base_layer[profile] = 0;
+    bt_switch_schedule_save();
+#endif
+}
+
 /* ---- Behavior ---- */
 
 static int on_binding_pressed(struct zmk_behavior_binding *binding,
                                struct zmk_behavior_binding_event event) {
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     for (int i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
         zmk_ble_prof_disconnect(i);
     }
@@ -229,6 +236,7 @@ static int on_binding_pressed(struct zmk_behavior_binding *binding,
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     apply_base_layer(zmk_ble_active_profile_index());
 #endif
+#endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
