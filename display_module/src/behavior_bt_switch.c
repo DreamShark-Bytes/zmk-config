@@ -227,6 +227,9 @@ void bt_switch_reset_profile_layer(int profile) {
  * its own profile slot within ~1s. This work fires at 1.5s and disconnects
  * every non-active profile, giving the departing device a clean termination
  * so its virtual keyboard reappears. */
+static void do_post_switch_disconnect(struct k_work *work);
+static K_WORK_DELAYABLE_DEFINE(post_switch_disconnect_work, do_post_switch_disconnect);
+
 static void do_post_switch_disconnect(struct k_work *work) {
     int active = zmk_ble_active_profile_index();
     for (int i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
@@ -241,7 +244,6 @@ static void do_post_switch_disconnect(struct k_work *work) {
         k_work_reschedule(&post_switch_disconnect_work, K_MSEC(2000));
     }
 }
-static K_WORK_DELAYABLE_DEFINE(post_switch_disconnect_work, do_post_switch_disconnect);
 
 #endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
 
