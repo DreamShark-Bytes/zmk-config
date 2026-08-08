@@ -180,7 +180,8 @@ static void build_real_screen(void) {
     x = -1 + 13 + ICON_TEXT_GAP;
     w_bt_icon = make_img(real_screen, &icon_bt_broken, x, ROW_TOP_Y);
     x += 13 + ICON_TEXT_GAP;
-    w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, "1", x, ROW_TOP_Y + LARGE_FONT_Y_OFFSET);
+    char init_profile[2] = { '1' + zmk_ble_active_profile_index(), '\0' };
+    w_bt_profile = make_label(real_screen, FONT_BT_PROFILE, init_profile, x, ROW_TOP_Y + LARGE_FONT_Y_OFFSET);
 
     x = -1;
     w_battery_icon = make_img(real_screen, &icon_battery, x, ROW_BATTERY_Y);
