@@ -237,12 +237,6 @@ static void do_post_switch_disconnect(struct k_work *work) {
             zmk_ble_prof_disconnect(i);
         }
     }
-    /* On an empty (open) profile, bonded devices keep auto-reconnecting on their
-     * own slots. Keep firing until the active profile is no longer open — either
-     * because the user paired a device or pressed bt_switch again. */
-    if (zmk_ble_active_profile_is_open()) {
-        k_work_reschedule(&post_switch_disconnect_work, K_MSEC(2000));
-    }
 }
 
 #endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
