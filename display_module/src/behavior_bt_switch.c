@@ -136,9 +136,6 @@ static int bt_layer_settings_set(const char *name, size_t len,
     return 0;
 }
 
-SETTINGS_STATIC_HANDLER_DEFINE(bt_layer, "bt_layer", NULL,
-                                bt_layer_settings_set, NULL, NULL);
-
 static void do_boot_restore(struct k_work *work) {
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_ACTIVE_PROFILE)
     if (saved_active_profile < ZMK_BLE_PROFILE_COUNT &&
@@ -152,15 +149,17 @@ static void do_boot_restore(struct k_work *work) {
 }
 static K_WORK_DELAYABLE_DEFINE(boot_restore_work, do_boot_restore);
 
-static int bt_layer_settings_init(void) {
-    settings_load_subtree("bt_layer");
-    /* Boot restore runs 100ms later via work queue — after settings_load() and
-     * zmk_ble_complete_startup() have both completed in main(). */
-    k_work_reschedule(&boot_restore_work, K_MSEC(100));
+/* Called by settings_load() in main() after all "bt_layer/" keys are loaded.
+ * Both ZMK's h_commit (zmk_ble_complete_startup) and this run inside the same
+ * settings_load() call. The k_work fires after settings_load() returns — after
+ * ZMK's active_profile is loaded from NVS and bt_conn callbacks are registered. */
+static int bt_layer_h_commit(void) {
+    k_work_reschedule(&boot_restore_work, K_NO_WAIT);
     return 0;
 }
-/* Priority 98: loads our NVS data only. All BLE calls deferred to do_boot_restore. */
-SYS_INIT(bt_layer_settings_init, APPLICATION, 98);
+
+SETTINGS_STATIC_HANDLER_DEFINE(bt_layer, "bt_layer", NULL,
+                                bt_layer_settings_set, bt_layer_h_commit, NULL);
 
 #endif /* PERSIST_BASE_LAYER || PERSIST_ACTIVE_PROFILE */
 
@@ -219,6 +218,27 @@ void bt_switch_reset_profile_layer(int profile) {
 #endif
 }
 
+/* ---- iOS reconnect guard ---- */
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+/* iOS aggressively auto-reconnects to bonded BLE devices after disconnect.
+ * After the profile switch, any previously connected device may reconnect on
+ * its own profile slot within ~1s. This work fires at 1.5s and disconnects
+ * every non-active profile, giving the departing device a clean termination
+ * so its virtual keyboard reappears. */
+static void do_post_switch_disconnect(struct k_work *work) {
+    int active = zmk_ble_active_profile_index();
+    for (int i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
+        if (i != active) {
+            zmk_ble_prof_disconnect(i);
+        }
+    }
+}
+static K_WORK_DELAYABLE_DEFINE(post_switch_disconnect_work, do_post_switch_disconnect);
+
+#endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
+
 /* ---- Behavior ---- */
 
 static int on_binding_pressed(struct zmk_behavior_binding *binding,
@@ -244,6 +264,10 @@ static int on_binding_pressed(struct zmk_behavior_binding *binding,
 #if IS_ENABLED(CONFIG_BT_SWITCH_PERSIST_BASE_LAYER)
     apply_base_layer(zmk_ble_active_profile_index());
 #endif
+
+    /* Schedule a second disconnect for non-active profiles to catch iOS reconnects. */
+    k_work_reschedule(&post_switch_disconnect_work, K_MSEC(1500));
+
 #endif /* CONFIG_ZMK_SPLIT_ROLE_CENTRAL */
     return ZMK_BEHAVIOR_OPAQUE;
 }
