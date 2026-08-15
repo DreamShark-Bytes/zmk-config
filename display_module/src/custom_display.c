@@ -37,10 +37,10 @@
 #include "display_config.h"
 #include "demo_list.h"
 #include "typing_stats.h"
+#include "virtual_pet_state.h"
+#include "virtual_pet_render.h"
 
 #include <stdio.h>
-#include "pet_temp_image_1.h"
-#include "pet_temp_image_2.h"
 #include "icon_link.h"
 #include "icon_link_broken.h"
 #include "icon_bt.h"
@@ -95,10 +95,54 @@ static lv_obj_t *w_layer_l       = NULL;
 static lv_obj_t *w_layer_colon   = NULL;
 static lv_obj_t *w_layer_name    = NULL;
 
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-static lv_obj_t *w_egg_img  = NULL;
-static int       egg_frame  = 0;
+/* ─── Central: pet state machine ───────────────────────────────────────────── */
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static pet_state_t g_pet;
+static lv_obj_t   *w_pet_canvas = NULL;
+/* Canvas pixel buffer lives in virtual_pet_render.c (g_canvas_buf) — not here. */
 #endif
+
+/* ─── Peripheral: wallpaper display ────────────────────────────────────────── */
+/*
+ * The right half shows a static or looping image in the pet area while the
+ * pet lives on the left. To change what's shown:
+ *
+ *   STATIC IMAGE
+ *     1. Set PERIPHERAL_DISPLAY_MODE to PERIPHERAL_DISPLAY_STATIC in display_config.h
+ *     2. Change peripheral_static_image below to your image variable name.
+ *
+ *   ANIMATED LOOP
+ *     1. Set PERIPHERAL_DISPLAY_MODE to PERIPHERAL_DISPLAY_ANIMATED in display_config.h
+ *     2. Edit peripheral_anim_frames[] below to list your frame pointers in order.
+ *     3. Adjust PERIPHERAL_ANIM_INTERVAL_MS in display_config.h for frame speed.
+ *
+ *   To add a new image: run  python3 tools/convert_image.py resources/pet/myimage.png
+ *   then include the generated .h here and use the variable name.
+ */
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+#include "logo.h"
+#include "pet_temp_image_1.h"
+#include "pet_temp_image_2.h"
+
+#if PERIPHERAL_DISPLAY_MODE == PERIPHERAL_DISPLAY_STATIC
+/* ── EDIT: change this to any lv_img_dsc_t you want to show ── */
+static const lv_img_dsc_t *peripheral_static_image = &logo;
+
+#else /* PERIPHERAL_DISPLAY_ANIMATED */
+/* ── EDIT: list your animation frames in playback order ── */
+static const lv_img_dsc_t *peripheral_anim_frames[] = {
+    &pet_temp_image_1,
+    &pet_temp_image_2,
+};
+static const int peripheral_anim_frame_count =
+    (int)(sizeof(peripheral_anim_frames) / sizeof(peripheral_anim_frames[0]));
+static int peripheral_anim_frame = 0;
+#endif
+
+static lv_obj_t *w_peripheral_img = NULL;
+
+#endif /* !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
 // ---------------------------------------------------------------------------
 // Layout helpers
@@ -163,17 +207,28 @@ static void build_real_screen(void) {
     lv_obj_set_style_bg_color(real_screen, lv_color_white(), 0);
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    // Right half — split link status, battery, and bobbing egg in the pet area.
+    /* Right half — split link status, battery, and wallpaper in the pet area. */
     w_link_icon = make_img(real_screen, &icon_link_broken, -1, ROW_TOP_Y);
     w_battery_icon = make_img(real_screen, &icon_battery, -1, ROW_BATTERY_Y);
     w_battery_pct = make_label(real_screen, FONT_BATTERY_NUM, "99%",
                                -1 + 13 + ICON_TEXT_GAP, ROW_BATTERY_Y + LARGE_FONT_Y_OFFSET);
-    w_egg_img = lv_img_create(real_screen);
-    lv_img_set_src(w_egg_img, &pet_temp_image_1);
-    lv_obj_set_pos(w_egg_img, PET_AREA_X, PET_AREA_Y);
-    egg_frame = 0;
+
+    w_peripheral_img = lv_img_create(real_screen);
+#if PERIPHERAL_DISPLAY_MODE == PERIPHERAL_DISPLAY_STATIC
+    lv_img_set_src(w_peripheral_img, peripheral_static_image);
+#else
+    lv_img_set_src(w_peripheral_img, peripheral_anim_frames[0]);
+    peripheral_anim_frame = 0;
+#endif
+    lv_obj_set_pos(w_peripheral_img, PET_AREA_X, PET_AREA_Y);
     return;
 #endif
+
+    /* Central (left) half — create the pet canvas in the pet area */
+    w_pet_canvas = lv_canvas_create(real_screen);
+    lv_obj_set_pos(w_pet_canvas, PET_AREA_X, PET_AREA_Y);
+    pet_render_init(w_pet_canvas);
+    pet_state_init(&g_pet);
 
     int x = -1;
     w_link_icon = make_img(real_screen, &icon_link_broken, x, ROW_TOP_Y);
@@ -226,9 +281,14 @@ static void do_auto_cycle(struct k_work *work);
 K_WORK_DELAYABLE_DEFINE(auto_cycle_work, do_auto_cycle);
 #endif
 
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static void do_pet_tick(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(pet_tick_work, do_pet_tick);
+#endif
+
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-static void do_egg_bob(struct k_work *work);
-K_WORK_DELAYABLE_DEFINE(egg_bob_work, do_egg_bob);
+static void do_peripheral_wallpaper_tick(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(peripheral_wallpaper_work, do_peripheral_wallpaper_tick);
 #endif
 
 // ---------------------------------------------------------------------------
@@ -243,7 +303,8 @@ static void ensure_initialized(void) {
     initialized = true;
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(500)); /* first check after 500ms warmup */
+    k_work_schedule_for_queue(zmk_display_work_q(), &poll_split_link_work, K_MSEC(500));
+    k_work_schedule_for_queue(zmk_display_work_q(), &pet_tick_work, K_MSEC(PET_RENDER_TICK_MS));
 #endif
 
     if (IS_ENABLED(CONFIG_CUSTOM_DISPLAY_DEFAULT_ON)) {
@@ -286,7 +347,10 @@ static void do_peripheral_display_init(struct k_work *work) {
     ensure_initialized();
     lv_scr_load(real_screen);
     current_state = DISPLAY_STATE_CUSTOM;
-    k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
+#if PERIPHERAL_DISPLAY_MODE == PERIPHERAL_DISPLAY_ANIMATED
+    k_work_reschedule_for_queue(zmk_display_work_q(), &peripheral_wallpaper_work,
+                                K_MSEC(PERIPHERAL_ANIM_INTERVAL_MS));
+#endif
     k_work_submit_to_queue(zmk_display_work_q(), &update_split_link_work);
 }
 K_WORK_DEFINE(peripheral_display_work, do_peripheral_display_init);
@@ -302,15 +366,35 @@ static int peripheral_display_sys_init(const struct device *dev) {
 }
 SYS_INIT(peripheral_display_sys_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
 
-// --- Egg bob animation ---
-static void do_egg_bob(struct k_work *work) {
-    if (!initialized || !w_egg_img) return;
-    egg_frame ^= 1;
-    lv_img_set_src(w_egg_img, egg_frame ? &pet_temp_image_2 : &pet_temp_image_1);
-    k_work_reschedule_for_queue(zmk_display_work_q(), &egg_bob_work, K_MSEC(EGG_BOB_INTERVAL_MS));
+/* ── Peripheral wallpaper tick ── */
+static void do_peripheral_wallpaper_tick(struct k_work *work) {
+    if (!initialized || !w_peripheral_img) return;
+#if PERIPHERAL_DISPLAY_MODE == PERIPHERAL_DISPLAY_ANIMATED
+    peripheral_anim_frame = (peripheral_anim_frame + 1) % peripheral_anim_frame_count;
+    lv_img_set_src(w_peripheral_img, peripheral_anim_frames[peripheral_anim_frame]);
+    k_work_reschedule_for_queue(zmk_display_work_q(), &peripheral_wallpaper_work,
+                                K_MSEC(PERIPHERAL_ANIM_INTERVAL_MS));
+#endif
+    /* STATIC mode: nothing to do each tick — image was set once at init */
 }
 
 #endif /* !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
+
+/* ── Central pet tick ── */
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static void do_pet_tick(struct k_work *work) {
+    if (!initialized || !w_pet_canvas) {
+        /* Not ready yet — retry after one tick */
+        k_work_reschedule_for_queue(zmk_display_work_q(), &pet_tick_work,
+                                    K_MSEC(PET_RENDER_TICK_MS));
+        return;
+    }
+    pet_state_tick(&g_pet, PET_RENDER_TICK_MS, typing_stats_get_char_count());
+    pet_render(&g_pet);
+    k_work_reschedule_for_queue(zmk_display_work_q(), &pet_tick_work,
+                                K_MSEC(PET_RENDER_TICK_MS));
+}
+#endif
 
 // ---------------------------------------------------------------------------
 // State transitions

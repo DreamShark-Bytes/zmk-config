@@ -170,8 +170,10 @@ Run `bash tools/build_font.sh` from the project root after step 1, then push to 
 ### Image/sprite format
 
 - Format: LVGL `INDEXED_1BIT` (2-entry palette + 1 bit/pixel, MSB first)
-- Conversion: `tools/convert_image.py` (PNG → C header, output to appropriate `resources/` subfolder)
-- Sprite sheet support: `--sprite-w`, `--sprite-h`, `--names` flags; outputs `sprite_frames[]` array
+- Conversion: `tools/convert_image.py` (PNG → C header; output goes next to source PNG by default; use `--output DIR` to redirect)
+- Sprite sheet — grouped mode: `--groups idle 2 walk 3 eat 2`; prefix defaults to filename stem (`keykey.png` → `keykey_`); generates per-group `*_frames[]` and `*_count` variables ready for `sprite_table[]`
+- Sprite sheet — flat mode: `--names frame_a frame_b ...`; generates a single `sprite_frames[]` array
+- `--prefix NAME` overrides the auto prefix from the filename stem
 - Threshold default: luminance ≥ 128 → white pixel. Override with `--threshold`
 - Canvas size for pet sprites: **60×60 pixels** (fits both OLED 128×64 and Nice!View 160×68)
 - Demo cycling: `tools/gen_demos.py` converts all `demos/*.png` and regenerates `resources/demos/demo_list.h`

@@ -1,9 +1,20 @@
 # zmk-config — Kyria Split Keyboard
 
-Personal ZMK firmware config for the [Kyria rev3](https://splitkb.com/kyria) wireless split keyboard, running on Nice!Nano v2 microcontrollers.
+This project's main goals is to both house the local keyboard configuration for my keyboard, but also house the virtual pet project for this same keyboard. I am designing it to live on the keyboard through the screen. It aims to entertain and enrich the typing experience without being too much of a distraction. 
+The pet/project name is Keykey, both since it lives on a keyboard and to honor my dog, Kiki. 
+
+Additional goal is to further my experience coding with AI, using Claude-Code. The art is not created through AI. I am using it to assist with designing the pet functionality by bouncing my ideas off it though. 
+
+This project has created personalized ZMK firmware config for the [Kyria rev3](https://splitkb.com/kyria) wireless split keyboard, running on Nice!Nano v2 microcontrollers.
 
 ZMK is required for wireless split keyboard support on the Nice!Nano hardware.
 
+<p align="center">
+<img src="resources/pet/concept art/Banner_Concept_ArtScribbles.jpeg">
+<p>
+<p align="center">
+<img src="display_right.jpg" width="350"> <img src="display_left.jpg" width="350">
+<p>
 <p align="center">
   <a href="https://ko-fi.com/dreamshark_bytes"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
 </p>
@@ -30,17 +41,16 @@ ZMK is required for wireless split keyboard support on the Nice!Nano hardware.
 
 The firmware includes a custom Zephyr module (`display_module/`) that extends the OLED displays beyond ZMK's default widgets.
 
-<img src="display_right.jpg" width="350"> <img src="display_left.jpg" width="350">
 
 ### Display states
 
 `&display_toggle` (bound to ADJ_L) cycles through three states:
 
-| State | What you see |
-|---|---|
-| **STOCK** | ZMK default: Bluetooth status, battery %, layer number |
+| State      | What you see                                                                                                  |
+| ------------| ---------------------------------------------------------------------------------------------------------------|
+| **STOCK**  | ZMK default: Bluetooth status, battery %, layer number                                                        |
 | **CUSTOM** | Real layout: info column + virtual pet area (currently a blank screen while lv_img rendering is investigated) |
-| **DEMO** | Developer mockup images — cycle through them with `&demo_cycle` |
+| **DEMO**   | Developer mockup images — cycle through them with `&demo_cycle`                                               |
 
 `&demo_cycle` is a no-op in STOCK and CUSTOM states. It only advances images when in DEMO state.
 
@@ -175,7 +185,8 @@ UI icons appear as standalone image objects (BT icon, battery icon, link icon, e
 2. Place the PNG in `resources/icons/`.
 3. Convert it:
    ```bash
-   python3 tools/convert_image.py resources/icons/my_icon.png > resources/icons/my_icon.h
+   python3 tools/convert_image.py resources/icons/my_icon.png
+   # writes resources/icons/my_icon.h next to the PNG automatically
    ```
 4. In `display_module/src/custom_display.c`, add `#include "my_icon.h"` at the top and reference `&my_icon` where you want to display it.
 5. Push to GitHub.
@@ -217,13 +228,44 @@ To add a test image to the on-device demo cycle (DEMO display state):
 
 ### Adding images and sprites
 
-```bash
-# Single image
-python3 tools/convert_image.py image.png > resources/pet/my_image.h
+The tool writes the `.h` file next to the source PNG by default.
+Use `--output DIR` to send it somewhere else.
 
-# Sprite sheet (e.g. 4 frames, 60×60 each)
-python3 tools/convert_image.py sheet.png --sprite-w 60 --sprite-h 60 \
-  --names idle_0 idle_1 walk_0 walk_1 > resources/pet/sprites.h
+**Single image:**
+```bash
+python3 tools/convert_image.py resources/pet/logo.png
+# → writes resources/pet/logo.h
+```
+
+**Sprite sheet — grouped animations (recommended for pet sprites):**
+
+Name the sheet after the creature (`keykey.png`, `egg.png`). The filename becomes the variable prefix automatically.
+
+```bash
+python3 tools/convert_image.py resources/pet/keykey.png \
+  --sprite-w 62 --sprite-h 62 \
+  --groups idle 2 walk 3 eat 2
+# → writes resources/pet/keykey.h containing:
+#     keykey_idle_0, keykey_idle_1
+#     keykey_walk_0, keykey_walk_1, keykey_walk_2
+#     keykey_eat_0,  keykey_eat_1
+#     keykey_idle_frames[], keykey_idle_count    ← plug into sprite_table[]
+#     keykey_walk_frames[], keykey_walk_count
+#     keykey_eat_frames[],  keykey_eat_count
+```
+
+Frame counts in `--groups` are optional and default to 1: `--groups idle 2 walk` gives idle=2, walk=1.
+
+Override the prefix with `--prefix` if the filename isn't what you want as a C namespace:
+```bash
+python3 tools/convert_image.py resources/pet/keykey.png \
+  --sprite-w 62 --sprite-h 62 --prefix kk_ --groups idle 2 walk 3
+```
+
+**Sprite sheet — flat named frames (simple cases):**
+```bash
+python3 tools/convert_image.py resources/pet/sheet.png \
+  --sprite-w 62 --sprite-h 62 --names frame_a frame_b frame_c
 ```
 
 Images must be PNG. The display is **monochrome** — pixels with luminance ≥ 128 render as white (lit), below 128 as black (off).

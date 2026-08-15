@@ -137,6 +137,10 @@ static void do_render_stat(struct k_work *work) {
 }
 K_WORK_DEFINE(render_stat_work, do_render_stat);
 
+uint32_t typing_stats_get_char_count(void) {
+    return char_count;
+}
+
 void typing_stats_init(lv_obj_t *status_icon, lv_obj_t *status_label) {
     w_status_icon  = status_icon;
     w_status_label = status_label;

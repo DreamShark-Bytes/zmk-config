@@ -62,10 +62,7 @@ extern const lv_font_t font_badcomic_16;
 
 
 // -----------------------------------------------------------------------------
-// ANIMATION & TIMING
-//
-// EGG_BOB_INTERVAL_MS: how fast the right-half egg alternates between its two
-//   animation frames. Lower = faster animation.
+// ANIMATION & TIMING (typing stats)
 //
 // STAT_CYCLE_INTERVAL_MS: how long each typing stat is shown before the display
 //   auto-advances to the next. Set to 0 to disable auto-cycle (&cycle key only).
@@ -74,9 +71,38 @@ extern const lv_font_t font_badcomic_16;
 //   typed within this window count. Idle time falls out naturally, so it never
 //   drags the reading down. 30 000 ms = 30 seconds.
 // -----------------------------------------------------------------------------
-#define EGG_BOB_INTERVAL_MS      800   // ms per animation frame (lower = faster)
 #define STAT_CYCLE_INTERVAL_MS  5000   // ms between auto-cycle; 0 = &cycle key only
 #define STAT_WPM_WINDOW_MS     30000   // rolling WPM window in ms
+
+
+// =============================================================================
+// RIGHT-HALF (PERIPHERAL) WALLPAPER
+//
+// The right half shows a static or animated image in its pet area while the
+// pet lives on the left half. Change what appears here in two steps:
+//
+//   1. Choose a mode below (PERIPHERAL_DISPLAY_STATIC or ANIMATED).
+//   2. Go to custom_display.c and find the "PERIPHERAL WALLPAPER" section —
+//      that's where you set the image(s) and, for animated, the frame list.
+//
+// The image must fit in the pet area: 62 x 62 pixels.
+// Convert your PNG with: python3 tools/convert_image.py resources/pet/myimage.png
+// =============================================================================
+#define PERIPHERAL_DISPLAY_STATIC    0   // show one image, no animation
+#define PERIPHERAL_DISPLAY_ANIMATED  1   // loop through a list of frames
+
+// Set the mode here:
+#define PERIPHERAL_DISPLAY_MODE  PERIPHERAL_DISPLAY_STATIC
+
+// For ANIMATED mode: how many milliseconds each frame is shown.
+// (For STATIC mode this value is ignored.)
+#define PERIPHERAL_ANIM_INTERVAL_MS  800
+
+
+// Pet timing, world size, and stat rates live in pet_config.h so the pet
+// system can be lifted to another project without this display-specific file.
+// Edit pet_config.h to tune those values.
+#include "pet_config.h"
 
 
 // -----------------------------------------------------------------------------
